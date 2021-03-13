@@ -1,0 +1,1 @@
+A game for two played on a directed star graph!  starkv is a portmanteau of star and kv (for kivy).
