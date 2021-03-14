@@ -1,0 +1,1 @@
+Graph canvas will be repurposed from graphvy project.  Will need to make a new interface for igraph (instead of graph-tool).
