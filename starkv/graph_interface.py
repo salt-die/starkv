@@ -1,7 +1,9 @@
+from igraph import Graph
+# Need a Node and Edge canvas instructions
 
 class GraphInterface(Graph):
     """
-    An interface from a graph_tool Graph to the graph canvas that updates the canvas when an edge/vertex
+    An interface from an igraph Graph to the graph canvas that updates the canvas when an edge/vertex
     has been added/removed.
     """
     __slots__ = 'canvas'
@@ -16,14 +18,11 @@ class GraphInterface(Graph):
         with self.canvas._node_instructions:
             self.canvas.nodes[node] = Node(node, self.canvas)
 
-        self.vp.pos[node][:] = random(), random()
-
-        self.canvas.nodes[node].make_list_item(self.canvas.adjacency_list)
-
+        # self.vp.pos[node][:] = random(), random()   # Need to update dict of positions
         return node
 
     def remove_vertex(self, node, fast=True):
-        for edge in set(node.all_edges()):
+        for edge in set(node.all_edges()):  # Change to equivalent in igraph
             self.remove_edge(edge)
 
         instruction = self.canvas.nodes[node]
@@ -48,14 +47,13 @@ class GraphInterface(Graph):
         else:
             last_vertex = None
 
-        canvas.adjacency_list.remove_widget(canvas.nodes[node].list_item)
         canvas._node_instructions.remove_group(instruction.group_name)
         del canvas.nodes[node]
         #
         # --- Prep done.
         #
 
-        super().remove_vertex(node, fast=True)  # Interface relies on fast=True, we ignore the previous fast value
+        # super().remove_vertex(node, fast=True)  # Replace with igraph equivalent
 
         #
         # --- Swap the vertex descriptor of the last node and edge descriptors of all edges adjacent to ---
@@ -71,10 +69,6 @@ class GraphInterface(Graph):
         for edge_instruction, edge in zip(edge_instructions, set(last_node.vertex.all_edges())):
             edge_instruction.s, edge_instruction.t = edge  # Update descriptor
             canvas.edges[edge] = edge_instruction          # Update edge dict
-
-        canvas.adjacency_list.remove_widget(last_node.list_item)
-        last_node.list_item.update_text()
-        canvas.adjacency_list.add_widget(last_node.list_item, index=self.num_vertices() - pos - 1)
 
     def add_edge(self, *args, **kwargs):
         edge = super().add_edge(*args, **kwargs)
@@ -95,5 +89,4 @@ class GraphInterface(Graph):
 
         super().remove_edge(edge)
 
-        self.canvas.nodes[source].list_item.update_text()
         self.canvas.update_canvas()
