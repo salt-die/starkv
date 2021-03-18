@@ -44,8 +44,8 @@ class GraphCanvas(Widget):
     def highlighted(self, node):
         """Freezes highlighted nodes or returns un-highlighted nodes to the proper color."""
         lit = self.highlighted
-        if lit is not None and lit is not self.source:
-            self.previous_state(lit)
+        if lit is not None:
+            lit.unfreeze()
 
         if node is not None:
             node.freeze(HIGHLIGHTED_NODE)
@@ -64,17 +64,6 @@ class GraphCanvas(Widget):
 
         if touch.button == 'right' or self.tool not in ('Select', 'Grab'):
             return
-
-        if self.tool == 'Select':
-            self.select_rect.color.a = SELECT_RECT_COLOR[-1]
-            return self.on_drag_select(touch)
-
-        if self._selected:
-            dx, dy = self.invert_coords(touch.dx, touch.dy, delta=True)
-            for node in self._selected:
-                x, y = self.G.vp.pos[node.vertex]
-                self.G.vp.pos[node.vertex][:] = x + dx, y + dy
-            return True
 
         if self.highlighted is not None:
             self.G.vp.pos[self.highlighted.vertex][:] = self.invert_coords(touch.x, touch.y)
@@ -125,9 +114,6 @@ class GraphCanvas(Widget):
                 touch.ud._drawelement = _, ellipse = Color(*HIGHLIGHTED_EDGE), Ellipse(size=(20, 20), segments=15)
             ellipse.pos = touch.x - 10, touch.y - 10
 
-            return True
-
-        self.touch_down_dict[self.tool](touch)
         return True
 
     def on_touch_up(self, touch):
@@ -137,8 +123,6 @@ class GraphCanvas(Widget):
         self._touches.remove(touch)
         self._mouse_pos_disabled = False
         self.select_rect.color.a = 0
-
-        @limit(UPDATE_INTERVAL)
 
     def on_mouse_pos(self, *args):
         mx, my = args[-1]
@@ -189,7 +173,6 @@ class GraphCanvas(Widget):
             self.select_rect = Selection()
             Color(1, 1, 1, 1)
 
-    @limit(UPDATE_INTERVAL)
     def update_canvas(self, dt=None):  # dt for use by kivy Clock
         """Update node coordinates and edge colors."""
         if self.resize_event.is_triggered:
