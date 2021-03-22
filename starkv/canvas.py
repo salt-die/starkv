@@ -173,7 +173,7 @@ class GraphCanvas(Widget):
             self.select_rect = Selection()
             Color(1, 1, 1, 1)
 
-    def update_canvas(self, dt=None):  # dt for use by kivy Clock
+    def update_canvas(self, *args):
         """Update node coordinates and edge colors."""
         if self.resize_event.is_triggered:
             return
@@ -199,7 +199,7 @@ class GraphCanvas(Widget):
         transform all coordinates and set to self.coords.
         """
 
-        if x is not None:
+        if x is not None and y is not None:
             return ((x * self.scale + self.offset_x) * self.width,
                     (y * self.scale + self.offset_y) * self.height)
 
