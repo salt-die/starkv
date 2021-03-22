@@ -11,8 +11,8 @@ class GraphInterface(Graph):
     __slots__ = 'canvas'
 
     def __init__(self, canvas, *args, **kwargs):
-        self.canvas = canvas
         super().__init__(*args, **kwargs)
+        self.canvas = canvas
 
     def add_edge(self, source, target, **kwargs):
         edge = super().add_edge(source, target, **kwargs)
