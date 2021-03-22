@@ -9,6 +9,8 @@ from kivy.uix.layout import Layout
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
+from .constants import UPDATE_INTERVAL, HIGHLIGHTED_NODE, HIGHLIGHTED_EDGE, BACKGROUND_COLOR, BOUNDS
+
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 def redraw_canvas_after(func):
@@ -30,11 +32,11 @@ class GraphCanvas(Widget):
         super().__init__(*args, **kwargs)
 
         self.resize_event = Clock.schedule_once(lambda dt: None, 0)  # Dummy event to save a conditional
+        self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
+        self.node_positions = {}
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
-
-        self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
 
     @property
     def highlighted(self):
@@ -66,6 +68,7 @@ class GraphCanvas(Widget):
             return
 
         if self.highlighted is not None:
+            self.node_positions[self.highlighted]
             self.G.vp.pos[self.highlighted.vertex][:] = self.invert_coords(touch.x, touch.y)
             return True
 
@@ -164,14 +167,9 @@ class GraphCanvas(Widget):
 
         self._node_instructions = CanvasBase()
         with self._node_instructions:
-            self._source_color = Color(*SOURCE_COLOR)
-            self._source_circle = Line(width=SOURCE_WIDTH)
-            self.nodes = {vertex: Node(vertex, self) for vertex in self.G.vertices()}
-        self.canvas.add(self._node_instructions)
+            self.nodes = {vertex: Node(vertex, self) for vertex in self.G.vs()}
 
-        with self.canvas.after:
-            self.select_rect = Selection()
-            Color(1, 1, 1, 1)
+        self.canvas.add(self._node_instructions)
 
     def update_canvas(self, *args):
         """Update node coordinates and edge colors."""
@@ -191,7 +189,8 @@ class GraphCanvas(Widget):
 
     @redraw_canvas_after
     def step_layout(self, dt):
-        sfdp_layout(self.G, pos=self.G.vp.pos, pin=self.G.vp.pinned, **SFDP_SETTINGS)
+        """Need to grab sfdp layout from igraph"""
+        return NotImplemented
 
     def transform_coords(self, x=None, y=None):
         """
@@ -203,7 +202,9 @@ class GraphCanvas(Widget):
             return ((x * self.scale + self.offset_x) * self.width,
                     (y * self.scale + self.offset_y) * self.height)
 
-        self.coords = coords = self.G.vp.pos.get_2d_array((0, 1)).T
+        # self.node_positions needs to be turned into a numpy array
+        #OBSOLETE:  self.coords = coords = self.G.vp.pos.get_2d_array((0, 1)).T
+        raise NotImplementedError
         np.multiply(coords, self.scale, out=coords)
         np.add(coords, (self.offset_x, self.offset_y), out=coords)
         np.multiply(coords, (self.width, self.height), out=coords)
