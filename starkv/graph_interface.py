@@ -19,7 +19,7 @@ class GraphInterface(Graph):
 
         with self.canvas._edge_instructions:
             self.canvas.edges[edge] = Edge(edge, self.canvas)
-        self.canvas.nodes[self.canvas.edges[edge].s].list_item.update_text()
+
         self.canvas.update_canvas()
 
         return edge
