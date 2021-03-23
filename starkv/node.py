@@ -1,5 +1,11 @@
 from kivy.graphics import Color, Line
-from .constants import NODE_WIDTH, NODE_RADIUS, BOUNDS, NODE_COLOR, HIGHLIGHTED_NODE
+from .constants import (
+    NODE_WIDTH,
+    NODE_RADIUS,
+    BOUNDS,
+    NODE_COLOR,
+    HIGHLIGHTED_NODE,
+)
 
 
 class Node(Line):
@@ -34,7 +40,4 @@ class Node(Line):
         return abs(x - mx) <= BOUNDS and abs(y - my) <= BOUNDS
 
     def update(self):
-        if not self.is_pinned:
-            self.color.rgba = self._color
-
         self.circle = *self.canvas.node_positions[self.vertex], NODE_RADIUS
