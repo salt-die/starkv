@@ -9,7 +9,12 @@ from kivy.uix.layout import Layout
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
-from .constants import UPDATE_INTERVAL, HIGHLIGHTED_NODE, HIGHLIGHTED_EDGE, BACKGROUND_COLOR, BOUNDS
+from .constants import (
+    UPDATE_INTERVAL,
+    BACKGROUND_COLOR,
+    HIGHLIGHTED_EDGE,
+    BOUNDS,
+)
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
@@ -35,8 +40,15 @@ class GraphCanvas(Widget):
         self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
         self.node_positions = {}
 
+        self.offset_x = .25
+        self.offset_y = .25
+        self.scale = .5
+
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
+
+    def load_graph(self):
+        """Set initial graph."""
 
     @property
     def highlighted(self):
@@ -50,7 +62,7 @@ class GraphCanvas(Widget):
             lit.unfreeze()
 
         if node is not None:
-            node.freeze(HIGHLIGHTED_NODE)
+            node.freeze()
 
         self._highlighted = node
 
@@ -64,12 +76,11 @@ class GraphCanvas(Widget):
         if len(self._touches) > 1:
             return self.transform_on_touch(touch)
 
-        if touch.button == 'right' or self.tool not in ('Select', 'Grab'):
+        if touch.button == 'right':
             return
 
         if self.highlighted is not None:
-            self.node_positions[self.highlighted]
-            self.G.vp.pos[self.highlighted.vertex][:] = self.invert_coords(touch.x, touch.y)
+            self.node_positions[self.highlighted.vertex] = self.invert_coords(touch.x, touch.y)
             return True
 
         self.offset_x += touch.dx / self.width
@@ -162,12 +173,12 @@ class GraphCanvas(Widget):
 
         self._edge_instructions = CanvasBase()
         with self._edge_instructions:
-            self.edges = {edge: Edge(edge, self) for edge in self.G.edges()}
+            self.edges = {edge: Edge(edge, self) for edge in self.G.es}
         self.canvas.add(self._edge_instructions)
 
         self._node_instructions = CanvasBase()
         with self._node_instructions:
-            self.nodes = {vertex: Node(vertex, self) for vertex in self.G.vs()}
+            self.nodes = {vertex: Node(vertex, self) for vertex in self.G.vs}
 
         self.canvas.add(self._node_instructions)
 
