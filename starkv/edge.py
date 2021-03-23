@@ -4,7 +4,12 @@ from math import atan2, sin, cos
 from kivy.graphics import Color, Line, Triangle
 from kivy.uix.widget import Widget
 
-from .constants import EDGE_WIDTH, HIGHLIGHTED_EDGE, HEAD_SIZE, EDGE_COLOR
+from .constants import (
+    EDGE_WIDTH,
+    HEAD_SIZE,
+    EDGE_COLOR,
+    HIGHLIGHTED_EDGE,
+)
 
 BASE = np.array(
     [
