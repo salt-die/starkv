@@ -91,25 +91,9 @@ class Edge(Arrow):
 
         super().__init__(width=EDGE_WIDTH, head_size=HEAD_SIZE)
 
-    @property
-    def directed(self):
-        return self._directed
-
-    @directed.setter
-    def directed(self, boolean):
-        self._directed = self.head.color.a = boolean
-
     def update(self):
-        x1, y1, x2, y2 = *self.canvas.coords[int(self.s)], *self.canvas.coords[int(self.t)]
-        self.points = x1, y1, x2, y2
-        if self.directed:
-            self.head.update(x1, y1, x2, y2)
+        (x1, y1), (x2, y2) = self.canvas.layout[self.s], self.canvas.layout[self.t]
+        super().update(x1, y1, x2, y2)
 
-        if self.canvas.G.vp.pinned[self.s]:
-            color = HIGHLIGHTED_EDGE
-        else:
-            color = EDGE_COLOR
-
-        hcolor =  tuple(min(c * 1.2, 1) for c in color)
-        self.color.rgba = color
-        self.head.color.rgba = hcolor
+        self.color.rgba = color = HIGHLIGHTED_EDGE if self.canvas.G.nodes[self.s].is_pinned else EDGE_COLOR
+        self.head.color.rgba = *(min(component * 1.2, 1) for component in color),
