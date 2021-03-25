@@ -1,5 +1,7 @@
 from functools import wraps
+from math import hypot
 
+from igraph import Graph
 from kivy.clock import Clock
 from kivy.graphics import Color, Ellipse, Line, Rectangle
 from kivy.config import Config
@@ -38,7 +40,6 @@ class GraphCanvas(Widget):
 
         self.resize_event = Clock.schedule_once(lambda dt: None, 0)  # Dummy event to save a conditional
         self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
-        self.node_positions = {}
 
         self.offset_x = .25
         self.offset_y = .25
@@ -49,6 +50,10 @@ class GraphCanvas(Widget):
 
     def load_graph(self):
         """Set initial graph."""
+        # Need a dialogue for choosing number of nodes
+        nnodes = 5  # TEMP
+        self.G = G = Graph.Star(nnodes, mode="out")
+        self._unscaled_layout = G.layout_reingold_tilford_circular(niter=1)
 
     @property
     def highlighted(self):
@@ -57,9 +62,8 @@ class GraphCanvas(Widget):
     @highlighted.setter
     def highlighted(self, node):
         """Freezes highlighted nodes or returns un-highlighted nodes to the proper color."""
-        lit = self.highlighted
-        if lit is not None:
-            lit.unfreeze()
+        if self.highlighted is not None:
+            self.highlighted.unfreeze()
 
         if node is not None:
             node.freeze()
@@ -80,7 +84,7 @@ class GraphCanvas(Widget):
             return
 
         if self.highlighted is not None:
-            self.node_positions[self.highlighted.vertex] = self.invert_coords(touch.x, touch.y)
+            self.layout[self.highlighted.vertex.index] = self.invert_coords(touch.x, touch.y)
             return True
 
         self.offset_x += touch.dx / self.width
@@ -133,10 +137,10 @@ class GraphCanvas(Widget):
     def on_touch_up(self, touch):
         if touch.grab_current is not self:
             return
+
         touch.ungrab(self)
         self._touches.remove(touch)
         self._mouse_pos_disabled = False
-        self.select_rect.color.a = 0
 
     def on_mouse_pos(self, *args):
         mx, my = args[-1]
@@ -149,15 +153,12 @@ class GraphCanvas(Widget):
                     if widget is not self and not isinstance(widget, Layout))):
             return
 
-        # Check collision with already highlighted node first:
-        if self.highlighted is not None and self.highlighted.collides(mx, my):
-            return
-
-        self.highlighted = None
-
-        collisions = np.argwhere(np.all(np.isclose(self.coords, (mx, my), atol=BOUNDS), axis=1))
-        if len(collisions):
-            self.highlighted = self.nodes[self.G.vertex(collisions[0][0])]
+        for node in self.nodes:
+            if node.collides(mx, my):
+                self.highlighted = node
+            break
+        else:
+            self.highlighted = None
 
     def _delayed_resize(self, *args):
         self.resize_event.cancel()
@@ -178,7 +179,7 @@ class GraphCanvas(Widget):
 
         self._node_instructions = CanvasBase()
         with self._node_instructions:
-            self.nodes = {vertex: Node(vertex, self) for vertex in self.G.vs}
+            self.nodes = [Node(vertex, self) for vertex in self.G.vs]
 
         self.canvas.add(self._node_instructions)
 
@@ -192,7 +193,7 @@ class GraphCanvas(Widget):
 
         self.transform_coords()
 
-        for node in self.nodes.values():
+        for node in self.nodes:
             node.update()
 
         for edge in self.edges.values():
@@ -201,7 +202,7 @@ class GraphCanvas(Widget):
     @redraw_canvas_after
     def step_layout(self, dt):
         """Need to grab sfdp layout from igraph"""
-        return NotImplemented
+        self._unscaled_layout = g.layout_fruchterman_reingold(niter=2, seed=self._unscaled_layout)
 
     def transform_coords(self, x=None, y=None):
         """
@@ -213,9 +214,7 @@ class GraphCanvas(Widget):
             return ((x * self.scale + self.offset_x) * self.width,
                     (y * self.scale + self.offset_y) * self.height)
 
-        # self.node_positions needs to be turned into a numpy array
-        #OBSOLETE:  self.coords = coords = self.G.vp.pos.get_2d_array((0, 1)).T
-        raise NotImplementedError
-        np.multiply(coords, self.scale, out=coords)
-        np.add(coords, (self.offset_x, self.offset_y), out=coords)
-        np.multiply(coords, (self.width, self.height), out=coords)
+        self.layout = self._unscaled_layout.copy()
+        self.layout.scale(self.scale)
+        self.layout.translate(self.offset_x, self.offset_y)
+        self.layout.scale(self.width, self.height)
