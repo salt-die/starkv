@@ -36,8 +36,8 @@ class Node(Line):
         self.update_out_edges()
 
     def collides(self, mx, my):
-        x, y = self.canvas.node_positions[self.vertex]
+        x, y = self.canvas.layouts[self.vertex.index]
         return abs(x - mx) <= BOUNDS and abs(y - my) <= BOUNDS
 
     def update(self):
-        self.circle = *self.canvas.node_positions[self.vertex], NODE_RADIUS
+        self.circle = *self.canvas.layout[self.vertex.index], NODE_RADIUS
