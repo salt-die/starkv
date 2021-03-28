@@ -23,16 +23,6 @@ from .edge import Edge
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
-def redraw_canvas_after(func):
-    """For methods that change vertex coordinates."""
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        results = func(self, *args, **kwargs)
-        self.update_canvas()
-        return results
-
-    return wrapper
-
 
 class GraphCanvas(Widget):
     _touches = []
@@ -79,26 +69,21 @@ class GraphCanvas(Widget):
 
         self._highlighted = node
 
-    @redraw_canvas_after
     def on_touch_move(self, touch):
         """Zoom if multitouch, else if a node is highlighted, drag it, else move the entire graph."""
 
-        if touch.grab_current is not self:
+        if touch.grab_current is not self or touch.button == 'right':
             return
 
         if len(self._touches) > 1:
             self.transform_on_touch(touch)
-            return True
-
-        if touch.button == 'right':
-            return
-
-        if self.highlighted is not None:
+        elif self.highlighted is not None:
             self._unscaled_layout[self.highlighted.vertex.index] = self.invert_coords(touch.x, touch.y)
-            return True
+        else:
+            self.offset_x += touch.dx / self.width
+            self.offset_y += touch.dy / self.height
 
-        self.offset_x += touch.dx / self.width
-        self.offset_y += touch.dy / self.height
+        self.update_canvas()
         return True
 
     def transform_on_touch(self, touch):
@@ -201,9 +186,9 @@ class GraphCanvas(Widget):
         for edge in self.edges.values():
             edge.update()
 
-    @redraw_canvas_after
     def step_layout(self, dt):
         self._unscaled_layout = self.G.layout_fruchterman_reingold(niter=1, seed=self._unscaled_layout)
+        self.update_canvas()
 
     def transform_coords(self, x=None, y=None):
         """
