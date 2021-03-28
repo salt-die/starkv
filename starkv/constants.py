@@ -19,9 +19,9 @@ HIGHLIGHTED_HEAD  = 0.912, 0.282, 0.287, 1.0
 # Sizes
 ####
 NODE_RADIUS   = 3
-BOUNDS        = NODE_RADIUS * 2
 
 NODE_WIDTH    = 3
 EDGE_WIDTH    = 2
+EDGE_BOUNDS   = EDGE_WIDTH * 2
 
 HEAD_SIZE     = 5  # size of arrow heads
