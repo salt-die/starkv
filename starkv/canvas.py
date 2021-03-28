@@ -179,6 +179,7 @@ class GraphCanvas(Widget):
             self.edges = {edge: Edge(edge, self) for edge in self.G.es}
         self.canvas.add(self._edge_instructions)
 
+        # Node instructions are kept separate from Edge instructions so that they're always drawn on top.
         self._node_instructions = CanvasBase()
         with self._node_instructions:
             self.nodes = [Node(vertex, self) for vertex in self.G.vs]
