@@ -1,13 +1,12 @@
 from functools import wraps
-from math import hypot
+from math import cos, hypot, sin, tau
 
-from igraph import Graph
+from igraph import Graph, Layout
 from kivy.clock import Clock
 from kivy.graphics import Color, Ellipse, Line, Rectangle
 from kivy.config import Config
 from kivy.graphics.instructions import CanvasBase
 from kivy.properties import OptionProperty, ObjectProperty
-from kivy.uix.layout import Layout
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
@@ -23,6 +22,10 @@ from .edge import Edge
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
+def circle_points(n):
+    """Yield `n` points evenly space around a circle centered at (0, 0) with radius 1"""
+    for i in range(n):
+        yield cos(tau * i / n), sin(tau * i / n)
 
 class GraphCanvas(Widget):
     _touches = []
@@ -32,11 +35,10 @@ class GraphCanvas(Widget):
         super().__init__(*args, **kwargs)
 
         self.resize_event = Clock.schedule_once(lambda dt: None, 0)  # Dummy event to save a conditional
-        # self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
+        self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
 
-        self.offset_x = .25
-        self.offset_y = .25
-        self.scale = .5
+        self.scale = .3
+        self.offset_x, self.offset_y = .5, .5
 
         self._mouse_pos_disabled = False
         self._highlighted = None
@@ -52,7 +54,7 @@ class GraphCanvas(Widget):
         # Need a dialogue for choosing number of nodes
         nnodes = 5  # TEMP
         self.G = G = GraphInterface.Star(nnodes, mode="out")
-        self._unscaled_layout = G.layout_fruchterman_reingold(niter=2)
+        self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
 
     @property
     def highlighted(self):
@@ -187,7 +189,7 @@ class GraphCanvas(Widget):
             edge.update()
 
     def step_layout(self, dt):
-        self._unscaled_layout = self.G.layout_fruchterman_reingold(niter=1, seed=self._unscaled_layout)
+        self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, node_mass=30, max_sa_movement=.1, node_charge=.00001)
         self.update_canvas()
 
     def transform_coords(self, x=None, y=None):
