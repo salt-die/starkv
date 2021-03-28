@@ -10,7 +10,7 @@ class GraphInterface(Graph):
     """
     __slots__ = 'canvas'
 
-    def __init__(self, canvas, *args, **kwargs):
+    def __init__(self, *args, canvas=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.canvas = canvas
 
