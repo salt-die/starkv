@@ -1,10 +1,11 @@
-from math import atan2, sin, cos
+from math import atan2, cos, hypot, sin
 
 from kivy.graphics import Color, Line, Triangle
 from kivy.graphics.texture import Texture
 from kivy.uix.widget import Widget
 
 from .constants import (
+    EDGE_BOUNDS,
     EDGE_WIDTH,
     HEAD_SIZE,
     EDGE_COLOR,
@@ -16,7 +17,7 @@ from .constants import (
 BASE =  -.5, 0.0, -4.0, 1.0, -4.0, -1.0
 UNIT = 1.0, 1.0, 1.0, 1.0
 
-### Create textures for selected edges
+### Create textures for selected edges ###
 gradient_length = 256
 
 def lerp(a, b, pct):
@@ -25,21 +26,37 @@ def lerp(a, b, pct):
 def gradient(a, b):
     return (int(lerp(x, y, z)) for z in range(gradient_length) for x, y in zip(a, b))
 
-selected_gradient = Texture.create(size=(gradient_length, 1))
+SELECTED_GRADIENT = Texture.create(size=(gradient_length, 1))
 buf = bytes(gradient(EDGE_COLOR, HIGHLIGHTED_EDGE))
-selected_gradient.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+SELECTED_GRADIENT.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
 
-selected_gradient_reversed = Texture.create(size=(gradient_length, 1))
+SELECTED_GRADIENT_REVERSED = Texture.create(size=(gradient_length, 1))
 buf = bytes(gradient(HIGHLIGHTED_EDGE, EDGE_COLOR))
-selected_gradient_reversed.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+SELECTED_GRADIENT_REVERSED.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
 
 del buf
 del lerp
 del gradient
 del gradient_length
-###
+##########################################
 
-class ArrowHead(Triangle):
+def distance_to_segment(px, py, ax, ay, bx, by):
+    abx, aby = bx - ax, by - ay
+
+    apx, apy = px - ax, py - ay
+    ab_ap = abx * apx + aby * apy
+    if ab_ap < 0:
+        return hypot(px - ax, py - ay)
+
+    bpx, bpy = px - bx, py - by
+    ab_bp = abx * bpx + aby * bpy
+    if ab_bp > 0:
+        return hypot(px - bx, py - by)
+
+    return abs(abx * apy - aby * apx) / hypot(abx, aby)
+
+
+class Arrow(Triangle):
     __slots__ = 'base', 'color', 'group_name'
 
     def __init__(self, color, size, group_name=None):
@@ -77,47 +94,21 @@ class ArrowHead(Triangle):
             sine   * bx3 + by3 * cosine + y2,
         )
 
-    def resize(self, size):
-        self.base = BASE * size
 
-
-class Arrow(Line):
-    __slots__ = 'group_name', 'color', 'head'
-
-    def __init__(self, width, head_size, line_color=(0, 0, 0, 0), head_color=(0, 0, 0, 0)):
-        self.group_name = str(id(self))
-
-        self.color = Color(*line_color, group=self.group_name)
-        super().__init__(width=width, group=self.group_name)
-
-        self.head = ArrowHead(color=head_color, size=head_size, group_name=self.group_name)
-
-    def update(self, x1, y1, x2, y2):
-        self.points = x1, y1, x2, y2
-        self.head.update(x1, y1, x2, y2)
-
-    def resize_head(self, size):
-        self.head.resize(size)
-
-
-class Edge(Arrow):
-    __slots__ = 'edge', 's', 't', 'canvas', '_tail_selected', '_head_selected'
+class Edge(Line):
+    __slots__ = 'edge', 'canvas', '_tail_selected', 'group_name', 'color', 'head'
 
     def __init__(self, edge, canvas):
+        self.group_name = str(id(self))
+
         self.edge = edge
         self.canvas = canvas
-        self.head_selected = False
+        self._tail_selected = None
 
-        super().__init__(width=EDGE_WIDTH, head_size=HEAD_SIZE)
+        self.color = Color(*EDGE_COLOR, group=self.group_name)
+        super().__init__(width=EDGE_WIDTH, group=self.group_name)
 
-    @property
-    def head_selected(self):
-        return self._head_selected
-
-    @head_selected.setter
-    def head_selected(self, value):
-        self._head_selected = value
-        self._tail_selected = not value
+        self.head = Arrow(color=HEAD_COLOR, size=HEAD_SIZE, group_name=self.group_name)
 
     @property
     def tail_selected(self):
@@ -126,26 +117,59 @@ class Edge(Arrow):
     @tail_selected.setter
     def tail_selected(self, value):
         self._tail_selected = value
-        self._head_selected = not value
+
+        if value is None:
+            return
+
+        self.color.rgba = UNIT
+
+        if value:
+            self.canvas.nodes[self.edge.source].freeze()
+            self.texture = SELECTED_GRADIENT
+            self.head.color.rgba = HEAD_COLOR
+        else:
+            self.canvas.nodes[self.edge.target].freeze()
+            self.texture = SELECTED_GRADIENT_REVERSED
+            self.head.color.rgba = HIGHLIGHTED_HEAD
 
     def update(self):
         source, target = self.edge.tuple
-        canvas = self.canvas
+        layout = self.canvas.layout
+        (x1, y1), (x2, y2) = layout[source], layout[target]
 
-        (x1, y1), (x2, y2) = canvas.layout[source], canvas.layout[target]
-        super().update(x1, y1, x2, y2)
+        self.points = x1, y1, x2, y2
+        self.head.update(x1, y1, x2, y2)
 
-        if canvas.nodes[source].is_pinned:
-            self.color.rgba = UNIT
+    def collides(self, mx, my):
+        source, target = self.edge.tuple
+        layout = self.canvas.layout
+        return distance_to_segment(mx, my, *layout[source], *layout[target]) <= EDGE_BOUNDS
 
-            if self.head_selected:
-                self.texture = selected_gradient_reversed
-                self.head.color.rgba = HIGHLIGHTED_HEAD
-            else:
-                self.texture = selected_gradient
-                self.head.color.rgba = HEAD_COLOR
+    def select(self, mx, my):
+        """Selects the endpoint which is closest to the point (mx, my)."""
+        source, target = self.edge.tuple
+        layout = self.canvas.layout
+        (x1, y1), (x2, y2) = layout[source], layout[target]
 
+        closer_to_tail = hypot(mx - x1, my - y1) < hypot(mx - x2, my - y2)
+
+        if self.tail_selected == closer_to_tail:
+            return
+
+        if self.tail_selected is not None:
+            self.unselect()
+        self.tail_selected = closer_to_tail
+
+    def unselect(self):
+        if self.tail_selected is None:
+            return
+
+        if self.tail_selected:
+            self.canvas.nodes[self.edge.source].unfreeze()
         else:
-            self.texture = None
-            self.color.rgba = EDGE_COLOR
-            self.head.color.rgba = HEAD_COLOR
+            self.canvas.nodes[self.edge.target].unfreeze()
+
+        self.color.rgba = EDGE_COLOR
+        self.head.color.rgba = HEAD_COLOR
+
+        self.tail_selected = None
