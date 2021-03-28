@@ -1,1 +1,0 @@
-Need line intersection method to grab edges.
