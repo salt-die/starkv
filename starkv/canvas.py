@@ -14,7 +14,6 @@ from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     HIGHLIGHTED_EDGE,
-    BOUNDS,
 )
 from .graph_interface import GraphInterface
 from .node import Node
@@ -27,6 +26,7 @@ def circle_points(n):
     """
     for i in range(n):
         yield cos(tau * i / n), sin(tau * i / n)
+
 
 class GraphCanvas(Widget):
     _touches = []
@@ -42,7 +42,7 @@ class GraphCanvas(Widget):
         self.offset_x, self.offset_y = .5, .5
 
         self._mouse_pos_disabled = False
-        self._highlighted = None
+        self._selected_edge = None
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
@@ -59,31 +59,31 @@ class GraphCanvas(Widget):
         self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
 
     @property
-    def highlighted(self):
-        return self._highlighted
+    def selected_edge(self):
+        return self._selected_edge
 
-    @highlighted.setter
-    def highlighted(self, node):
-        """Freezes highlighted nodes or returns un-highlighted nodes to the proper color.
-        """
-        if self.highlighted is not None:
-            self.highlighted.unfreeze()
+    @selected_edge.setter
+    def selected_edge(self, edge):
+        if self.selected_edge is not None:
+            self.selected_edge.unselect()
 
-        if node is not None:
-            node.freeze()
-
-        self._highlighted = node
+        self._selected_edge = edge
 
     def on_touch_move(self, touch):
-        """Zoom if multitouch, else if a node is highlighted, drag it, else move the entire graph.
+        """Zoom if multitouch, else a node is pinned, drag it, else move the entire graph.
         """
         if touch.grab_current is not self or touch.button == 'right':
             return
 
         if len(self._touches) > 1:
             self.transform_on_touch(touch)
-        elif self.highlighted is not None:
-            self.highlighted.is_pinned = self.invert_coords(touch.x, touch.y)
+
+        elif self.selected_edge is not None:
+            px, py = self.invert_coords(touch.px, touch.py)
+            x, y = self.invert_coords(touch.x, touch.y)
+            self._fx += x - px
+            self._fy += y - py
+
         else:
             self.offset_x += touch.dx / self.width
             self.offset_y += touch.dy / self.height
@@ -126,7 +126,7 @@ class GraphCanvas(Widget):
 
         if touch.button == 'right':
             touch.multitouch_sim = True
-            # We're going to change the color of multitouch dots to match our color scheme:
+            # Change the color of multitouch dots to match our color scheme:
             with Window.canvas.after:
                 touch.ud._drawelement = _, ellipse = Color(*HIGHLIGHTED_EDGE), Ellipse(size=(20, 20), segments=15)
             ellipse.pos = touch.x - 10, touch.y - 10
@@ -147,12 +147,17 @@ class GraphCanvas(Widget):
         if self._mouse_pos_disabled or not self.collide_point(mx, my):
             return
 
-        for node in self.nodes:
-            if node.collides(mx, my):
-                self.highlighted = node
+        if self.selected_edge is not None and self.selected_edge.collides(mx, my):
+            self.selected_edge.select(mx, my)
+            return
+
+        for edge in self.edges.values():
+            if edge.collides(mx, my):
+                self.selected_edge = edge
+                edge.select(mx, my)
                 break
         else:
-            self.highlighted = None
+            self.selected_edge = None
 
     def _delayed_resize(self, *args):
         self.resize_event.cancel()
@@ -199,8 +204,8 @@ class GraphCanvas(Widget):
     def step_layout(self, dt):
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
 
-        if self.highlighted is not None:  # Keep highlighted node from moving by reseting it's position after updating layout
-            self._unscaled_layout[self.highlighted.vertex.index] = self.highlighted.is_pinned
+        if self.selected_edge is not None:  # Keep pinned node from moving by reseting it's position after updating layout
+            self._unscaled_layout[self._f] = self._fx, self._fy
 
         self.update_canvas()
 
