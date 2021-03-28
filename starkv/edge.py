@@ -1,4 +1,3 @@
-import numpy as np
 from math import atan2, sin, cos
 
 from kivy.graphics import Color, Line, Triangle
@@ -13,16 +12,8 @@ from .constants import (
     HIGHLIGHTED_HEAD,
 )
 
-BASE = np.array(
-    [
-        [-0.5,  0],
-        [  -4,  1],
-        [  -4, -1],
-    ],
-    dtype=float,
-)
-ROTATION = np.zeros((2, 2), dtype=float)  # Used as a buffer for Triangle rotation matrix
-BUFFER = np.zeros((3, 2), dtype=float)    # Buffer for matmul with ROTATION
+BASE =  -.5, 0, -4, 1, -4, -1
+
 
 class ArrowHead(Triangle):
     __slots__ = 'base', 'color', 'group_name'
@@ -40,7 +31,7 @@ class ArrowHead(Triangle):
 
         Tip is off origin so that arrow is less covered by nodes.
         """
-        self.base =  BASE * size
+        self.base =  tuple(c * size for c in BASE)
         self.group_name = str(id(self)) if group_name is None else group_name
 
         self.color = Color(*color, group=self.group_name)
@@ -49,16 +40,18 @@ class ArrowHead(Triangle):
     def update(self, x1, y1, x2, y2):
         theta = atan2(y2 - y1, x2 - x1)
 
-        ROTATION[(0, 1), (0, 1)] = cos(theta)
-
+        cosine = cos(theta)
         sine = sin(theta)
-        ROTATION[0, 1] = sine
-        ROTATION[1, 0] = -sine
 
-        np.matmul(self.base, ROTATION, out=BUFFER)
-        np.add(BUFFER, (x2, y2), out=BUFFER)
-
-        self.points = *BUFFER.reshape(1, -1)[0],
+        bx1, by1, bx2, by2, bx3, by3 = self.base
+        self.points = (
+            cosine * bx1 + by1 *  -sine + x2,
+            sine   * bx1 + by1 * cosine + y2,
+            cosine * bx2 + by2 *  -sine + x2,
+            sine   * bx2 + by2 * cosine + y2,
+            cosine * bx3 + by3 *  -sine + x2,
+            sine   * bx3 + by3 * cosine + y2,
+        )
 
     def resize(self, size):
         self.base = BASE * size
