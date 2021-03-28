@@ -2,42 +2,44 @@ from kivy.graphics import Color, Line
 from .constants import (
     NODE_WIDTH,
     NODE_RADIUS,
-    BOUNDS,
     NODE_COLOR,
     HIGHLIGHTED_NODE,
+    EDGE_COLOR,
+    HIGHLIGHTED_EDGE,
+    HEAD_COLOR,
+    HIGHLIGHTED_HEAD,
 )
 
 
 class Node(Line):
-    __slots__ = 'color', 'vertex', 'canvas', 'group_name', 'is_pinned'
+    __slots__ = 'color', 'vertex', 'canvas', 'group_name'
 
     def __init__(self, vertex, canvas):
         self.group_name = str(id(self))
-
         self.vertex = vertex
         self.canvas = canvas
-        self.is_pinned = False
-
         self.color = Color(*NODE_COLOR, group=self.group_name)
         super().__init__(width=NODE_WIDTH, group=self.group_name)
 
-    def update_out_edges(self):
-        for edge in self.vertex.out_edges():
-            self.canvas.edges[edge].update()
-
     def freeze(self):
-        self.is_pinned = self.canvas._unscaled_layout[self.vertex.index]
+        self.canvas._f = self.vertex.index
+        self.canvas._fx, self.canvas._fy = self.canvas._unscaled_layout[self.vertex.index]
         self.color.rgba = HIGHLIGHTED_NODE
-        self.update_out_edges()
+
+        for edge in self.vertex.out_edges():
+            e = self.canvas.edges[edge]
+            if e.tail_selected is None:
+                e.color.rgba = HIGHLIGHTED_EDGE
+                e.head.color.rgba = HIGHLIGHTED_HEAD
 
     def unfreeze(self):
-        self.is_pinned = False
         self.color.rgba = NODE_COLOR
-        self.update_out_edges()
 
-    def collides(self, mx, my):
-        x, y = self.canvas.layout[self.vertex.index]
-        return abs(x - mx) <= BOUNDS and abs(y - my) <= BOUNDS
+        for edge in self.vertex.out_edges():
+            e = self.canvas.edges[edge]
+            if e.tail_selected is None:
+                e.color.rgba = EDGE_COLOR
+                e.head.color.rgba = HEAD_COLOR
 
     def update(self):
         self.circle = *self.canvas.layout[self.vertex.index], NODE_RADIUS
