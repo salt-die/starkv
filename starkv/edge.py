@@ -13,13 +13,31 @@ from .constants import (
     HIGHLIGHTED_HEAD,
 )
 
-BASE =  -.5, 0, -4, 1, -4, -1
-UNIT = 1, 1, 1, 1
+BASE =  -.5, 0.0, -4.0, 1.0, -4.0, -1.0
+UNIT = 1.0, 1.0, 1.0, 1.0
 
+### Create textures for selected edges
 gradient_length = 256
+
+def lerp(a, b, pct):
+    return a * pct + b * (255 - pct)
+
+def gradient(a, b):
+    return (int(lerp(x, y, z)) for z in range(gradient_length) for x, y in zip(a, b))
+
 selected_gradient = Texture.create(size=(gradient_length, 1))
-buf = bytes(int(comp_1 * x + comp_2 * (255 - x)) for x in range(gradient_length) for comp_1, comp_2 in zip(EDGE_COLOR[:3] + (1, ), HIGHLIGHTED_EDGE))
+buf = bytes(gradient(EDGE_COLOR, HIGHLIGHTED_EDGE))
 selected_gradient.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+
+selected_gradient_reversed = Texture.create(size=(gradient_length, 1))
+buf = bytes(gradient(HIGHLIGHTED_EDGE, EDGE_COLOR))
+selected_gradient_reversed.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+
+del buf
+del lerp
+del gradient
+del gradient_length
+###
 
 class ArrowHead(Triangle):
     __slots__ = 'base', 'color', 'group_name'
@@ -83,13 +101,32 @@ class Arrow(Line):
 
 
 class Edge(Arrow):
-    __slots__ = 'edge', 's', 't', 'canvas'
+    __slots__ = 'edge', 's', 't', 'canvas', '_tail_selected', '_head_selected'
 
     def __init__(self, edge, canvas):
         self.edge = edge
         self.canvas = canvas
+        self.head_selected = False
 
         super().__init__(width=EDGE_WIDTH, head_size=HEAD_SIZE)
+
+    @property
+    def head_selected(self):
+        return self._head_selected
+
+    @head_selected.setter
+    def head_selected(self, value):
+        self._head_selected = value
+        self._tail_selected = not value
+
+    @property
+    def tail_selected(self):
+        return self._tail_selected
+
+    @tail_selected.setter
+    def tail_selected(self, value):
+        self._tail_selected = value
+        self._head_selected = not value
 
     def update(self):
         source, target = self.edge.tuple
@@ -99,9 +136,16 @@ class Edge(Arrow):
         super().update(x1, y1, x2, y2)
 
         if canvas.nodes[source].is_pinned:
-            self.texture = selected_gradient
             self.color.rgba = UNIT
-            self.head.color.rgba = HIGHLIGHTED_HEAD
+
+            if self.head_selected:
+                self.texture = selected_gradient_reversed
+                self.head.color.rgba = HIGHLIGHTED_HEAD
+            else:
+                self.texture = selected_gradient
+                self.head.color.rgba = HEAD_COLOR
+
         else:
+            self.texture = None
             self.color.rgba = EDGE_COLOR
             self.head.color.rgba = HEAD_COLOR
