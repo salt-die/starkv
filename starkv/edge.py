@@ -1,6 +1,7 @@
 from math import atan2, sin, cos
 
 from kivy.graphics import Color, Line, Triangle
+from kivy.graphics.texture import Texture
 from kivy.uix.widget import Widget
 
 from .constants import (
@@ -13,7 +14,12 @@ from .constants import (
 )
 
 BASE =  -.5, 0, -4, 1, -4, -1
+UNIT = 1, 1, 1, 1
 
+gradient_length = 256
+selected_gradient = Texture.create(size=(gradient_length, 1))
+buf = bytes(int(comp_1 * x + comp_2 * (255 - x)) for x in range(gradient_length) for comp_1, comp_2 in zip(EDGE_COLOR[:3] + (1, ), HIGHLIGHTED_EDGE))
+selected_gradient.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
 
 class ArrowHead(Triangle):
     __slots__ = 'base', 'color', 'group_name'
@@ -93,7 +99,8 @@ class Edge(Arrow):
         super().update(x1, y1, x2, y2)
 
         if canvas.nodes[source].is_pinned:
-            self.color.rgba = HIGHLIGHTED_EDGE
+            self.texture = selected_gradient
+            self.color.rgba = UNIT
             self.head.color.rgba = HIGHLIGHTED_HEAD
         else:
             self.color.rgba = EDGE_COLOR
