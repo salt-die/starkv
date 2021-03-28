@@ -9,6 +9,8 @@ from .constants import (
     HEAD_SIZE,
     EDGE_COLOR,
     HIGHLIGHTED_EDGE,
+    HEAD_COLOR,
+    HIGHLIGHTED_HEAD,
 )
 
 BASE = np.array(
@@ -86,14 +88,20 @@ class Edge(Arrow):
 
     def __init__(self, edge, canvas):
         self.edge = edge
-        self.s, self.t = edge.tuple
         self.canvas = canvas
 
         super().__init__(width=EDGE_WIDTH, head_size=HEAD_SIZE)
 
     def update(self):
-        (x1, y1), (x2, y2) = self.canvas.layout[self.s], self.canvas.layout[self.t]
+        source, target = self.edge.tuple
+        canvas = self.canvas
+
+        (x1, y1), (x2, y2) = canvas.layout[source], canvas.layout[target]
         super().update(x1, y1, x2, y2)
 
-        self.color.rgba = color = HIGHLIGHTED_EDGE if self.canvas.G.nodes[self.s].is_pinned else EDGE_COLOR
-        self.head.color.rgba = *(min(component * 1.2, 1) for component in color),
+        if canvas.nodes[source].is_pinned:
+            self.color.rgba = HIGHLIGHTED_EDGE
+            self.head.color.rgba = HIGHLIGHTED_HEAD
+        else:
+            self.color.rgba = EDGE_COLOR
+            self.head.color.rgba = HEAD_COLOR
