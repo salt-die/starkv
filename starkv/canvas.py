@@ -3,10 +3,9 @@ from math import cos, hypot, sin, tau
 
 from igraph import Graph, Layout
 from kivy.clock import Clock
-from kivy.graphics import Color, Ellipse, Line, Rectangle
+from kivy.graphics import Color, Ellipse, Rectangle
 from kivy.config import Config
 from kivy.graphics.instructions import CanvasBase
-from kivy.properties import OptionProperty, ObjectProperty
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
@@ -30,7 +29,7 @@ def circle_points(n):
 
 class GraphCanvas(Widget):
     _touches = []
-    delay = .3
+    delay = .1
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -163,6 +162,9 @@ class GraphCanvas(Widget):
         self.resize_event.cancel()
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
 
+        self._background.size = self.size
+        self._background.pos = self.pos
+
     def setup_canvas(self):
         """Populate the canvas with the initial instructions.
         """
@@ -188,9 +190,6 @@ class GraphCanvas(Widget):
         """
         if self.resize_event.is_triggered:
             return
-
-        self._background.size = self.size
-        self._background.pos = self.pos
 
         self.layout = self._unscaled_layout.copy()
         self.layout.transform(self.transform_coords)
