@@ -17,6 +17,9 @@ from .constants import (
     HIGHLIGHTED_EDGE,
     BOUNDS,
 )
+from .graph_interface import GraphInterface
+from .node import Node
+from .edge import Edge
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
@@ -39,21 +42,27 @@ class GraphCanvas(Widget):
         super().__init__(*args, **kwargs)
 
         self.resize_event = Clock.schedule_once(lambda dt: None, 0)  # Dummy event to save a conditional
-        self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
+        # self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
 
         self.offset_x = .25
         self.offset_y = .25
         self.scale = .5
 
+        self._mouse_pos_disabled = False
+        self._highlighted = None
+
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
+
+        self.load_graph()
+        self.setup_canvas()
 
     def load_graph(self):
         """Set initial graph."""
         # Need a dialogue for choosing number of nodes
         nnodes = 5  # TEMP
-        self.G = G = Graph.Star(nnodes, mode="out")
-        self._unscaled_layout = G.layout_reingold_tilford_circular(niter=1)
+        self.G = G = GraphInterface.Star(nnodes, mode="out")
+        self._unscaled_layout = G.layout_fruchterman_reingold(niter=2)
 
     @property
     def highlighted(self):
@@ -78,13 +87,14 @@ class GraphCanvas(Widget):
             return
 
         if len(self._touches) > 1:
-            return self.transform_on_touch(touch)
+            self.transform_on_touch(touch)
+            return True
 
         if touch.button == 'right':
             return
 
         if self.highlighted is not None:
-            self.layout[self.highlighted.vertex.index] = self.invert_coords(touch.x, touch.y)
+            self._unscaled_layout[self.highlighted.vertex.index] = self.invert_coords(touch.x, touch.y)
             return True
 
         self.offset_x += touch.dx / self.width
@@ -110,12 +120,9 @@ class GraphCanvas(Widget):
         self.offset_x += (ax - x) / self.width
         self.offset_y += (ay - y) / self.height
 
-        return True
-
-    def invert_coords(self, x, y, delta=False):
+    def invert_coords(self, x, y):
         """Transform canvas coordinates to vertex coordinates."""
-        off_x, off_y = (0, 0) if delta else (self.offset_x, self.offset_y)
-        return (x / self.width - off_x) / self.scale, (y / self.height - off_y) / self.scale
+        return (x / self.width - self.offset_x) / self.scale, (y / self.height - self.offset_y) / self.scale
 
     def on_touch_down(self, touch):
         if not self.collide_point(*touch.pos):
@@ -145,18 +152,13 @@ class GraphCanvas(Widget):
     def on_mouse_pos(self, *args):
         mx, my = args[-1]
 
-        if self._mouse_pos_disabled or self.coords is None or not self.collide_point(mx, my):
-            return
-
-        if (not self.adjacency_list.is_hidden
-            and any(widget.collide_point(mx, my) for widget in self.walk()
-                    if widget is not self and not isinstance(widget, Layout))):
+        if self._mouse_pos_disabled or not self.collide_point(mx, my):
             return
 
         for node in self.nodes:
             if node.collides(mx, my):
                 self.highlighted = node
-            break
+                break
         else:
             self.highlighted = None
 
@@ -201,18 +203,19 @@ class GraphCanvas(Widget):
 
     @redraw_canvas_after
     def step_layout(self, dt):
-        """Need to grab sfdp layout from igraph"""
-        self._unscaled_layout = g.layout_fruchterman_reingold(niter=2, seed=self._unscaled_layout)
+        self._unscaled_layout = self.G.layout_fruchterman_reingold(niter=1, seed=self._unscaled_layout)
 
     def transform_coords(self, x=None, y=None):
         """
         Transform vertex coordinates to canvas coordinates.  If no specific coordinate is passed
-        transform all coordinates and set to self.coords.
+        transform all coordinates in the unscaled layout.
         """
 
         if x is not None and y is not None:
-            return ((x * self.scale + self.offset_x) * self.width,
-                    (y * self.scale + self.offset_y) * self.height)
+            return (
+                (x * self.scale + self.offset_x) * self.width,
+                (y * self.scale + self.offset_y) * self.height,
+            )
 
         self.layout = self._unscaled_layout.copy()
         self.layout.scale(self.scale)
