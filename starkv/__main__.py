@@ -8,4 +8,4 @@ class Starkvy(App):
         return GraphCanvas()
 
 
-Starkvy.run()
+Starkvy().run()
