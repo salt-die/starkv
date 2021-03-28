@@ -83,7 +83,7 @@ class GraphCanvas(Widget):
         if len(self._touches) > 1:
             self.transform_on_touch(touch)
         elif self.highlighted is not None:
-            self._unscaled_layout[self.highlighted.vertex.index] = self.invert_coords(touch.x, touch.y)
+            self.highlighted.is_pinned = self.invert_coords(touch.x, touch.y)
         else:
             self.offset_x += touch.dx / self.width
             self.offset_y += touch.dy / self.height
@@ -198,6 +198,10 @@ class GraphCanvas(Widget):
 
     def step_layout(self, dt):
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, node_mass=30, max_sa_movement=.1, node_charge=.00001)
+
+        if self.highlighted is not None:  # Keep highlighted node from moving by reseting it's position after updating layout
+            self._unscaled_layout[self.highlighted.vertex.index] = self.highlighted.is_pinned
+
         self.update_canvas()
 
     def transform_coords(self, coord):

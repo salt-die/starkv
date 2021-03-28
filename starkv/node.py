@@ -26,7 +26,7 @@ class Node(Line):
             self.canvas.edges[edge].update()
 
     def freeze(self):
-        self.is_pinned = True
+        self.is_pinned = self.canvas._unscaled_layout[self.vertex.index]
         self.color.rgba = HIGHLIGHTED_NODE
         self.update_out_edges()
 
