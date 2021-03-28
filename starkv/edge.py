@@ -96,7 +96,7 @@ class Arrow(Triangle):
 
 
 class Edge(Line):
-    __slots__ = 'edge', 'canvas', '_tail_selected', 'group_name', 'color', 'head'
+    __slots__ = 'group_name', 'edge', 'canvas', '_tail_selected', 'color', 'head'
 
     def __init__(self, edge, canvas):
         self.group_name = str(id(self))
@@ -123,14 +123,10 @@ class Edge(Line):
 
         self.color.rgba = UNIT
 
-        if value:
+        if self.tail_selected:
             self.canvas.nodes[self.edge.source].freeze()
-            self.texture = SELECTED_GRADIENT
-            self.head.color.rgba = HEAD_COLOR
         else:
             self.canvas.nodes[self.edge.target].freeze()
-            self.texture = SELECTED_GRADIENT_REVERSED
-            self.head.color.rgba = HIGHLIGHTED_HEAD
 
     def update(self):
         source, target = self.edge.tuple
@@ -139,6 +135,16 @@ class Edge(Line):
 
         self.points = x1, y1, x2, y2
         self.head.update(x1, y1, x2, y2)
+
+        if self.tail_selected is None:
+            return
+
+        if self.tail_selected:
+            self.texture = SELECTED_GRADIENT
+            self.head.color.rgba = HEAD_COLOR
+        else:
+            self.texture = SELECTED_GRADIENT_REVERSED
+            self.head.color.rgba = HIGHLIGHTED_HEAD
 
     def collides(self, mx, my):
         source, target = self.edge.tuple
@@ -156,11 +162,13 @@ class Edge(Line):
         if self.tail_selected == closer_to_tail:
             return
 
-        if self.tail_selected is not None:
+        if self.tail_selected is not None:  # If we're already selected but the closest endpoint has changed.
             self.unselect()
+
         self.tail_selected = closer_to_tail
 
     def unselect(self):
+        """Unfreeze the frozen node and re-color this edge."""
         if self.tail_selected is None:
             return
 
