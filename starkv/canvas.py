@@ -197,7 +197,7 @@ class GraphCanvas(Widget):
             edge.update()
 
     def step_layout(self, dt):
-        self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, node_mass=30, max_sa_movement=.1, node_charge=.00001)
+        self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
 
         if self.highlighted is not None:  # Keep highlighted node from moving by reseting it's position after updating layout
             self._unscaled_layout[self.highlighted.vertex.index] = self.highlighted.is_pinned
