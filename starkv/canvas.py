@@ -34,7 +34,7 @@ class GraphCanvas(Widget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.resize_event = Clock.schedule_once(lambda dt: None, 0)  # Dummy event to save a conditional
+        self.resize_event = None
         self.update_layout = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
 
         self.scale = .3
@@ -146,8 +146,12 @@ class GraphCanvas(Widget):
         if self._mouse_pos_disabled or not self.collide_point(mx, my):
             return
 
-        if self.selected_edge is not None and self.selected_edge.collides(mx, my):
-            self.selected_edge.select(mx, my)
+        # If an edge is selected, just check collision with that edge.
+        if self.selected_edge is not None:
+            if self.selected_edge.collides(mx, my):
+                self.selected_edge.select(mx, my)
+            else:
+                self.selected_edge = None
             return
 
         for edge in self.edges.values():
@@ -159,7 +163,8 @@ class GraphCanvas(Widget):
             self.selected_edge = None
 
     def _delayed_resize(self, *args):
-        self.resize_event.cancel()
+        if self.resize_event is not None:
+            self.resize_event.cancel()
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
 
         self._background.size = self.size
