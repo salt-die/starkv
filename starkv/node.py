@@ -20,8 +20,8 @@ class Node(Line):
     def freeze(self):
         # Storing frozen node position in a hidden attribute in the canvas:
         # Probably should refactor this!
-        self.canvas._f = i = self.vertex.index
-        self.canvas._fx, self.canvas._fy = self.canvas._unscaled_layout[i]
+        self.canvas._frozen_index = i = self.vertex.index
+        self.canvas._frozen_x, self.canvas._frozen_y = self.canvas._unscaled_layout[i]
 
         self.color.rgba = HIGHLIGHTED_NODE
 
