@@ -22,8 +22,11 @@ class Node(Line):
         super().__init__(width=NODE_WIDTH, group=self.group_name)
 
     def freeze(self):
-        self.canvas._f = self.vertex.index
-        self.canvas._fx, self.canvas._fy = self.canvas._unscaled_layout[self.vertex.index]
+        # Storing frozen node position in a hidden attribute in the canvas:
+        # Probably should refactor this!
+        self.canvas._f = i = self.vertex.index
+        self.canvas._fx, self.canvas._fy = self.canvas._unscaled_layout[i]
+
         self.color.rgba = HIGHLIGHTED_NODE
 
         for edge in self.vertex.out_edges():
