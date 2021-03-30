@@ -4,10 +4,6 @@ from .constants import (
     NODE_RADIUS,
     NODE_COLOR,
     HIGHLIGHTED_NODE,
-    EDGE_COLOR,
-    HIGHLIGHTED_EDGE,
-    HEAD_COLOR,
-    HIGHLIGHTED_HEAD,
 )
 
 
@@ -29,20 +25,8 @@ class Node(Line):
 
         self.color.rgba = HIGHLIGHTED_NODE
 
-        for edge in self.vertex.out_edges():
-            e = self.canvas.edges[edge]
-            if e.tail_selected is None:
-                e.color.rgba = HIGHLIGHTED_EDGE
-                e.head.color.rgba = HIGHLIGHTED_HEAD
-
     def unfreeze(self):
         self.color.rgba = NODE_COLOR
-
-        for edge in self.vertex.out_edges():
-            e = self.canvas.edges[edge]
-            if e.tail_selected is None:
-                e.color.rgba = EDGE_COLOR
-                e.head.color.rgba = HEAD_COLOR
 
     def update(self):
         self.circle = *self.canvas.layout[self.vertex.index], NODE_RADIUS
