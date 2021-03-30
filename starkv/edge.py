@@ -101,17 +101,40 @@ class Edge(Line):
 
     @tail_selected.setter
     def tail_selected(self, value):
-        self._tail_selected = value
+        tail_selected = self.tail_selected
 
-        if value is None:
+        if tail_selected == value:
             return
 
-        self.color.rgba = UNIT
+        source, target = self.edge.tuple
+        nodes = self.canvas.nodes
+        edges = self.canvas.edges
 
-        if self.tail_selected:
-            self.canvas.nodes[self.edge.source].freeze()
+        if tail_selected is not None:
+            unfrozen = nodes[source if tail_selected else target]
+            unfrozen.unfreeze()
+
+            for edge in unfrozen.vertex.out_edges():
+                e = edges[edge]
+                e.color.rgba = EDGE_COLOR
+                e.head.color.rgba = HEAD_COLOR
+
+        if value is not None:
+            self.color.rgba = UNIT
+            self.head.color.rgba, frozen = (HEAD_COLOR, nodes[source]) if value else (HIGHLIGHTED_HEAD, nodes[target])
+            frozen.freeze()
+
+            for edge in frozen.vertex.out_edges():
+                e = edges[edge]
+                if e is not self:
+                    e.color.rgba = HIGHLIGHTED_EDGE
+                    e.head.color.rgba = HIGHLIGHTED_HEAD
+
         else:
-            self.canvas.nodes[self.edge.target].freeze()
+            self.color.rgba = EDGE_COLOR
+            self.head.color.rgba = HEAD_COLOR
+
+        self._tail_selected = value
 
     @property
     def layout_points(self):
@@ -130,12 +153,15 @@ class Edge(Line):
 
         if self.tail_selected:
             self.texture = SELECTED_GRADIENT
-            self.head.color.rgba = HEAD_COLOR
         else:
             self.texture = SELECTED_GRADIENT_REVERSED
-            self.head.color.rgba = HIGHLIGHTED_HEAD
 
     def collides(self, px, py):
+        """
+        Returns a 2-tuple (is_close, closer_to_tail), where `is_close` indicates if `(px, py)` is within
+        `EDGE_BOUNDS` of this edge and `closer_to_tail` indicates if the point is closer to
+        the tail or the head of this edge.
+        """
         ax, ay, bx, by = self.layout_points
 
         # Distance from a point to a segment:
@@ -145,40 +171,12 @@ class Edge(Line):
         apx, apy = px - ax, py - ay
         ab_ap = abx * apx + aby * apy
         if ab_ap < 0:
-            return hypot(px - ax, py - ay) <= EDGE_BOUNDS
+            return hypot(px - ax, py - ay) <= EDGE_BOUNDS, True
 
         bpx, bpy = px - bx, py - by
         ab_bp = abx * bpx + aby * bpy
         if ab_bp > 0:
-            return hypot(px - bx, py - by) <= EDGE_BOUNDS
+            return hypot(px - bx, py - by) <= EDGE_BOUNDS, False
 
-        return abs(abx * apy - aby * apx) / hypot(abx, aby) <= EDGE_BOUNDS
-
-    def select(self, mx, my):
-        """Selects the endpoint which is closest to the point (mx, my)."""
-        x1, y1, x2, y2 = self.layout_points
-
-        closer_to_tail = hypot(mx - x1, my - y1) < hypot(mx - x2, my - y2)
-
-        if self.tail_selected == closer_to_tail:
-            return
-
-        if self.tail_selected is not None:  # If we're already selected but the closest endpoint has changed.
-            self.unselect()
-
-        self.tail_selected = closer_to_tail
-
-    def unselect(self):
-        """Unfreeze the frozen node and re-color this edge."""
-        if self.tail_selected is None:
-            return
-
-        if self.tail_selected:
-            self.canvas.nodes[self.edge.source].unfreeze()
-        else:
-            self.canvas.nodes[self.edge.target].unfreeze()
-
-        self.color.rgba = EDGE_COLOR
-        self.head.color.rgba = HEAD_COLOR
-
-        self.tail_selected = None
+        # Project segment down to point
+        return abs(abx * apy - aby * apx) / hypot(abx, aby) <= EDGE_BOUNDS, hypot(px - ax, py - ay) < hypot(px - bx, py - by)
