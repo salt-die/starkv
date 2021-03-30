@@ -64,7 +64,7 @@ class GraphCanvas(Widget):
     @selected_edge.setter
     def selected_edge(self, edge):
         if self.selected_edge is not None:
-            self.selected_edge.unselect()
+            self.selected_edge.tail_selected = None
 
         self._selected_edge = edge
 
@@ -148,16 +148,18 @@ class GraphCanvas(Widget):
 
         # If an edge is selected, just check collision with that edge.
         if self.selected_edge is not None:
-            if self.selected_edge.collides(mx, my):
-                self.selected_edge.select(mx, my)
+            collides, tail_selected = self.selected_edge.collides(mx, my)
+            if collides:
+                self.selected_edge.tail_selected = tail_selected
             else:
                 self.selected_edge = None
             return
 
         for edge in self.edges.values():
-            if edge.collides(mx, my):
+            collides, tail_selected = edge.collides(mx, my)
+            if collides:
                 self.selected_edge = edge
-                edge.select(mx, my)
+                edge.tail_selected = tail_selected
                 break
         else:
             self.selected_edge = None
