@@ -8,25 +8,29 @@ from .constants import (
 
 
 class Node(Line):
-    __slots__ = 'color', 'vertex', 'canvas', 'group_name'
+    __slots__ = 'color', 'vertex', 'canvas', 'group_name', '_x', '_y'
 
     def __init__(self, vertex, canvas):
         self.group_name = str(id(self))
         self.vertex = vertex
         self.canvas = canvas
         self.color = Color(*NODE_COLOR, group=self.group_name)
+        self._x = self._y = None
         super().__init__(width=NODE_WIDTH, group=self.group_name)
 
-    def freeze(self):
-        # Storing frozen node position in a hidden attribute in the canvas:
-        # Probably should refactor this!
-        self.canvas._frozen_index = i = self.vertex.index
-        self.canvas._frozen_x, self.canvas._frozen_y = self.canvas._unscaled_layout[i]
+    @property
+    def is_frozen(self):
+        return self._x is not None is not self._y
 
+    def freeze(self):
+        self._x, self._y = self.canvas._unscaled_layout[self.vertex.index]
         self.color.rgba = HIGHLIGHTED_NODE
 
     def unfreeze(self):
+        self._x = self._y = None
         self.color.rgba = NODE_COLOR
 
     def update(self):
+        if self.is_frozen:
+            self.canvas._unscaled_layout[self.vertex.index] = self._x, self._y
         self.circle = *self.canvas.layout[self.vertex.index], NODE_RADIUS

@@ -156,6 +156,21 @@ class Edge(Line):
         else:
             self.texture = SELECTED_GRADIENT_REVERSED
 
+    def move_end(self, dx, dy):
+        """Move the end of the edge if it's selected.
+        """
+        if self.tail_selected is None:
+            return
+
+        nodes = self.canvas.nodes
+        source, target = self.edge.tuple
+        if self.tail_selected:
+            nodes[source]._x += dx
+            nodes[source]._y += dy
+        else:
+            nodes[target]._x += dx
+            nodes[target]._y += dy
+
     def collides(self, px, py):
         """
         Returns a 2-tuple (is_close, closer_to_tail), where `is_close` indicates if `(px, py)` is within

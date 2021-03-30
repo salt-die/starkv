@@ -32,7 +32,6 @@ class GraphCanvas(Widget):
         '_touches', 'delay', 'resize_event', 'update_layout',
         'scale', 'offset_x', 'offset_y', '_mouse_pos_disabled',
         '_selected_edge', '_unscaled_layout', 'layout', 'G',
-        '_frozen_index', '_frozen_x', '_frozen_y',
     )
 
     def __init__(self, *args, **kwargs):
@@ -87,8 +86,7 @@ class GraphCanvas(Widget):
         elif self.selected_edge is not None:
             px, py = self.invert_coords(touch.px, touch.py)
             x, y = self.invert_coords(touch.x, touch.y)
-            self._frozen_x += x - px
-            self._frozen_y += y - py
+            self.selected_edge.move_end(x - px, y - py)
 
         else:
             self.offset_x += touch.dx / self.width
@@ -217,10 +215,6 @@ class GraphCanvas(Widget):
 
     def step_layout(self, dt):
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
-
-        if self.selected_edge is not None:  # Keep pinned node from moving by reseting it's position after updating layout
-            self._unscaled_layout[self._frozen_index] = self._frozen_x, self._frozen_y
-
         self.update_canvas()
 
     def transform_coords(self, coord):
