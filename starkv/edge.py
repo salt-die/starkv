@@ -40,21 +40,6 @@ del gradient
 del gradient_length
 ##########################################
 
-def distance_to_segment(px, py, ax, ay, bx, by):
-    abx, aby = bx - ax, by - ay
-
-    apx, apy = px - ax, py - ay
-    ab_ap = abx * apx + aby * apy
-    if ab_ap < 0:
-        return hypot(px - ax, py - ay)
-
-    bpx, bpy = px - bx, py - by
-    ab_bp = abx * bpx + aby * bpy
-    if ab_bp > 0:
-        return hypot(px - bx, py - by)
-
-    return abs(abx * apy - aby * apx) / hypot(abx, aby)
-
 
 class Arrow(Triangle):
     __slots__ = 'base', 'color', 'group_name'
@@ -128,10 +113,14 @@ class Edge(Line):
         else:
             self.canvas.nodes[self.edge.target].freeze()
 
-    def update(self):
+    @property
+    def layout_points(self):
         source, target = self.edge.tuple
         layout = self.canvas.layout
-        (x1, y1), (x2, y2) = layout[source], layout[target]
+        return *layout[source], *layout[target],
+
+    def update(self):
+        x1, y1, x2, y2 = self.layout_points
 
         self.points = x1, y1, x2, y2
         self.head.update(x1, y1, x2, y2)
@@ -146,16 +135,28 @@ class Edge(Line):
             self.texture = SELECTED_GRADIENT_REVERSED
             self.head.color.rgba = HIGHLIGHTED_HEAD
 
-    def collides(self, mx, my):
-        source, target = self.edge.tuple
-        layout = self.canvas.layout
-        return distance_to_segment(mx, my, *layout[source], *layout[target]) <= EDGE_BOUNDS
+    def collides(self, px, py):
+        ax, ay, bx, by = self.layout_points
+
+        # Distance from a point to a segment:
+        # We compare dot products of point with either end of segment
+        # to determine if point is closest to that end
+        abx, aby = bx - ax, by - ay
+        apx, apy = px - ax, py - ay
+        ab_ap = abx * apx + aby * apy
+        if ab_ap < 0:
+            return hypot(px - ax, py - ay) <= EDGE_BOUNDS
+
+        bpx, bpy = px - bx, py - by
+        ab_bp = abx * bpx + aby * bpy
+        if ab_bp > 0:
+            return hypot(px - bx, py - by) <= EDGE_BOUNDS
+
+        return abs(abx * apy - aby * apx) / hypot(abx, aby) <= EDGE_BOUNDS
 
     def select(self, mx, my):
         """Selects the endpoint which is closest to the point (mx, my)."""
-        source, target = self.edge.tuple
-        layout = self.canvas.layout
-        (x1, y1), (x2, y2) = layout[source], layout[target]
+        x1, y1, x2, y2 = self.layout_points
 
         closer_to_tail = hypot(mx - x1, my - y1) < hypot(mx - x2, my - y2)
 
