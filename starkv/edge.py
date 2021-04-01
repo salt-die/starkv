@@ -12,6 +12,8 @@ from .constants import (
     HIGHLIGHTED_EDGE,
     HEAD_COLOR,
     HIGHLIGHTED_HEAD,
+    NODE_COLOR,
+    HIGHLIGHTED_NODE,
 )
 
 BASE =  -.5, 0.0, -4.0, 1.0, -4.0, -1.0
@@ -109,12 +111,13 @@ class Edge(Line):
         source, target = self.edge.tuple
         nodes = self.canvas.nodes
         edges = self.canvas.edges
+        G = self.canvas.G
 
         if tail_selected is not None:
             unfrozen = nodes[source if tail_selected else target]
-            unfrozen.unfreeze()
+            unfrozen.color.rgba = NODE_COLOR
 
-            for edge in unfrozen.vertex.out_edges():
+            for edge in G.vs[unfrozen.index].out_edges():
                 e = edges[edge]
                 e.color.rgba = EDGE_COLOR
                 e.head.color.rgba = HEAD_COLOR
@@ -122,9 +125,10 @@ class Edge(Line):
         if value is not None:
             self.color.rgba = UNIT
             self.head.color.rgba, frozen = (HEAD_COLOR, nodes[source]) if value else (HIGHLIGHTED_HEAD, nodes[target])
-            frozen.freeze()
+            self.canvas.selected_node = frozen
+            frozen.color.rgba = HIGHLIGHTED_NODE
 
-            for edge in frozen.vertex.out_edges():
+            for edge in G.vs[frozen.index].out_edges():
                 e = edges[edge]
                 if e is not self:
                     e.color.rgba = HIGHLIGHTED_EDGE
@@ -133,6 +137,7 @@ class Edge(Line):
         else:
             self.color.rgba = EDGE_COLOR
             self.head.color.rgba = HEAD_COLOR
+            self.canvas.selected_node = None
 
         self._tail_selected = value
 
@@ -155,21 +160,6 @@ class Edge(Line):
             self.texture = SELECTED_GRADIENT
         else:
             self.texture = SELECTED_GRADIENT_REVERSED
-
-    def move_end(self, dx, dy):
-        """Move the end of the edge if it's selected.
-        """
-        if self.tail_selected is None:
-            return
-
-        nodes = self.canvas.nodes
-        source, target = self.edge.tuple
-        if self.tail_selected:
-            nodes[source]._x += dx
-            nodes[source]._y += dy
-        else:
-            nodes[target]._x += dx
-            nodes[target]._y += dy
 
     def collides(self, px, py):
         """
