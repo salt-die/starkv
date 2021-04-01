@@ -2,9 +2,11 @@ from functools import wraps
 from math import cos, hypot, sin, tau
 
 from igraph import Graph, Layout
+
+from kivy.animation import Animation
 from kivy.clock import Clock
-from kivy.graphics import Color, Ellipse, Rectangle
 from kivy.config import Config
+from kivy.graphics import Color, Ellipse, Rectangle, PushMatrix, PopMatrix, Rotate, Scale
 from kivy.graphics.instructions import CanvasBase
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
@@ -13,9 +15,16 @@ from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     HIGHLIGHTED_EDGE,
+    ANIMATION_HEIGHT,
+    ANIMATION_WIDTH,
+    ANIMATION_HEIGHT_2,
+    ANIMATION_WIDTH_2,
+    ROTATE_INCREMENT,
+    SCALE_SPEED_OUT,
+    SCALE_SPEED_IN,
 )
 from .graph_interface import GraphInterface
-from .node import Node
+from .node import Node, AnimatedNode
 from .edge import Edge
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
@@ -32,6 +41,10 @@ class GraphCanvas(Widget):
         '_touches', 'delay', 'resize_event', 'update_layout',
         'scale', 'offset_x', 'offset_y', '_mouse_pos_disabled',
         '_selected_edge', '_unscaled_layout', 'layout', 'G',
+        '_selected_node', '_selected_node_x', '_selected_node_y',
+        'node_animation', 'nodes', 'edges',
+        'rotation_instruction', 'scale_instruction', 'rotate_animation',
+        'scale_animation',
     )
 
     def __init__(self, *args, **kwargs):
@@ -47,10 +60,16 @@ class GraphCanvas(Widget):
         self.offset_x, self.offset_y = .5, .5
 
         self._mouse_pos_disabled = False
-        self._selected_edge = None
+        self._selected_edge = self._selected_node = None
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
+
+        self.scale_animation = (
+              Animation(size=(ANIMATION_WIDTH_2, ANIMATION_HEIGHT_2), duration=SCALE_SPEED_OUT)
+            + Animation(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT), duration=SCALE_SPEED_IN)
+        )
+        self.scale_animation.repeat = True
 
         self.load_graph()
         self.setup_canvas()
@@ -59,7 +78,7 @@ class GraphCanvas(Widget):
         """Set initial graph.
         """
         # Need a dialogue for choosing number of nodes
-        nnodes = 5  # TEMP
+        nnodes = 10  # TEMP
         self.G = G = GraphInterface.Star(nnodes, mode="out")
         self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
 
@@ -74,6 +93,24 @@ class GraphCanvas(Widget):
 
         self._selected_edge = edge
 
+    @property
+    def selected_node(self):
+        return self._selected_node
+
+    @selected_node.setter
+    def selected_node(self, node):
+        self._selected_node = node
+        if node is not None:
+            self._selected_node_x, self._selected_node_y = x, y = self._unscaled_layout[node.index]
+            self.node_animation.color.a = 1
+            self.rotate_animation()
+            self.scale_animation.start(self.node_animation)
+
+        else:
+            self.node_animation.color.a = 0
+            self.rotate_animation.cancel()
+            self.scale_animation.stop(self.node_animation)
+
     def on_touch_move(self, touch):
         """Zoom if multitouch, else a node is pinned, drag it, else move the entire graph.
         """
@@ -86,7 +123,8 @@ class GraphCanvas(Widget):
         elif self.selected_edge is not None:
             px, py = self.invert_coords(touch.px, touch.py)
             x, y = self.invert_coords(touch.x, touch.y)
-            self.selected_edge.move_end(x - px, y - py)
+            self._selected_node_x += x - px
+            self._selected_node_y += y - py
 
         else:
             self.offset_x += touch.dx / self.width
@@ -163,8 +201,8 @@ class GraphCanvas(Widget):
         for edge in self.edges.values():
             collides, tail_selected = edge.collides(mx, my)
             if collides:
-                self.selected_edge = edge
                 edge.tail_selected = tail_selected
+                self.selected_edge = edge
                 break
         else:
             self.selected_edge = None
@@ -194,9 +232,20 @@ class GraphCanvas(Widget):
         # Node instructions are kept separate from Edge instructions so that they're always drawn on top.
         self._node_instructions = CanvasBase()
         with self._node_instructions:
-            self.nodes = [Node(vertex, self) for vertex in self.G.vs]
+            PushMatrix()
+            self.rotation_instruction = Rotate()
+            self.node_animation = AnimatedNode(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT))
+            PopMatrix()
+            self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
 
         self.canvas.add(self._node_instructions)
+
+        self.rotate_animation = Clock.schedule_interval(self._rotate_node, UPDATE_INTERVAL)
+        self.rotate_animation.cancel()
+
+    def _rotate_node(self, dt):
+        self.rotation_instruction.origin = self.layout[self.selected_node.index]
+        self.rotation_instruction.angle = (self.rotation_instruction.angle + ROTATE_INCREMENT) % 360
 
     def update_canvas(self, *args):
         """Update node coordinates and edge colors.
@@ -204,8 +253,16 @@ class GraphCanvas(Widget):
         if self.resize_event.is_triggered:
             return
 
+        if self.selected_edge is not None:
+            self._unscaled_layout[self._selected_node.index] = self._selected_node_x, self._selected_node_y
+
         self.layout = self._unscaled_layout.copy()
         self.layout.transform(self.transform_coords)
+
+        if self.selected_node is not None:
+            x, y = self.layout[self.selected_node.index]
+            w, h = self.node_animation.size
+            self.node_animation.pos = x - w // 2, y - h // 2
 
         for node in self.nodes:
             node.update()
