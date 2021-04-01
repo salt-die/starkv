@@ -1,1 +1,3 @@
-Highlight edges to show possible moves? Or animate some texture instead?  It feels wrong that the recoloring of these edges is happening in the Node class in any case.
+Add animation to highlighted edges.
+
+Fix positioning of node animation (it lags behind moved node); probably needs a refactor
