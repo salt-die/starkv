@@ -19,12 +19,13 @@ from .constants import (
     ANIMATION_WIDTH,
     ANIMATION_HEIGHT_2,
     ANIMATION_WIDTH_2,
+    ANIMATED_NODE_SOURCE,
     ROTATE_INCREMENT,
     SCALE_SPEED_OUT,
     SCALE_SPEED_IN,
 )
 from .graph_interface import GraphInterface
-from .node import Node, AnimatedNode
+from .node import Node
 from .edge import Edge
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
@@ -42,7 +43,7 @@ class GraphCanvas(Widget):
         'scale', 'offset_x', 'offset_y', '_mouse_pos_disabled',
         '_selected_edge', '_unscaled_layout', 'layout', 'G',
         '_selected_node', '_selected_node_x', '_selected_node_y',
-        'node_animation', 'nodes', 'edges',
+        'animated_node', 'nodes', 'edges',
         'rotation_instruction', 'scale_instruction', 'rotate_animation',
         'scale_animation',
     )
@@ -102,14 +103,14 @@ class GraphCanvas(Widget):
         self._selected_node = node
         if node is not None:
             self._selected_node_x, self._selected_node_y = x, y = self._unscaled_layout[node.index]
-            self.node_animation.color.a = 1
+            self.animated_node_color.a = 1
             self.rotate_animation()
-            self.scale_animation.start(self.node_animation)
+            self.scale_animation.start(self.animated_node)
 
         else:
-            self.node_animation.color.a = 0
+            self.animated_node_color.a = 0
             self.rotate_animation.cancel()
-            self.scale_animation.stop(self.node_animation)
+            self.scale_animation.stop(self.animated_node)
 
     def on_touch_move(self, touch):
         """Zoom if multitouch, else a node is pinned, drag it, else move the entire graph.
@@ -224,20 +225,24 @@ class GraphCanvas(Widget):
             self.background_color = Color(*BACKGROUND_COLOR)
             self._background = Rectangle(size=self.size, pos=self.pos)
 
+        # Edge instructions before Node instructions so they're drawn underneath nodes.
         self._edge_instructions = CanvasBase()
         with self._edge_instructions:
             self.edges = {edge: Edge(edge, self) for edge in self.G.es}
         self.canvas.add(self._edge_instructions)
 
-        # Node instructions are kept separate from Edge instructions so that they're always drawn on top.
-        self._node_instructions = CanvasBase()
-        with self._node_instructions:
+        # Animated node drawn above edges but below other nodes.
+        with self.canvas:
             PushMatrix()
             self.rotation_instruction = Rotate()
-            self.node_animation = AnimatedNode(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT))
+            self.animated_node_color = Color(*HIGHLIGHTED_EDGE)
+            self.animated_node_color.a = 0
+            self.animated_node = Rectangle(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT), source=ANIMATED_NODE_SOURCE)
             PopMatrix()
-            self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
 
+        self._node_instructions = CanvasBase()
+        with self._node_instructions:
+            self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
         self.canvas.add(self._node_instructions)
 
         self.rotate_animation = Clock.schedule_interval(self._rotate_node, UPDATE_INTERVAL)
@@ -248,30 +253,34 @@ class GraphCanvas(Widget):
         self.rotation_instruction.angle = (self.rotation_instruction.angle + ROTATE_INCREMENT) % 360
 
     def update_canvas(self, *args):
-        """Update node coordinates and edge colors.
+        """Update coordinates of all elements.
         """
-        if self.resize_event.is_triggered:
+        if self.resize_event.is_triggered:  # We use a delayed resize, this will make sure we're done resizing before we update.
             return
-
-        if self.selected_edge is not None:
-            self._unscaled_layout[self._selected_node.index] = self._selected_node_x, self._selected_node_y
-
-        self.layout = self._unscaled_layout.copy()
-        self.layout.transform(self.transform_coords)
-
-        if self.selected_node is not None:
-            x, y = self.layout[self.selected_node.index]
-            w, h = self.node_animation.size
-            self.node_animation.pos = x - w // 2, y - h // 2
-
-        for node in self.nodes:
-            node.update()
 
         for edge in self.edges.values():
             edge.update()
 
+        if self.selected_node is not None:
+            x, y = self.layout[self.selected_node.index]
+            w, h = self.animated_node.size
+            self.animated_node.pos = x - w // 2, y - h // 2
+
+        for node in self.nodes:
+            node.update()
+
     def step_layout(self, dt):
+        """Iterate the graph layout algorithm.
+        """
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
+
+        # Keep the animated node fixed:
+        if self.selected_edge is not None:
+            self._unscaled_layout[self.selected_node.index] = self._selected_node_x, self._selected_node_y
+
+        self.layout = self._unscaled_layout.copy()
+        self.layout.transform(self.transform_coords)
+
         self.update_canvas()
 
     def transform_coords(self, coord):
