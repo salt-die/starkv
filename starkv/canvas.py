@@ -51,6 +51,7 @@ class GraphCanvas(Widget):
 
         self._mouse_pos_disabled = False
         self._selected_edge = self._selected_node = None
+        self._source_node = self._target_node = None
 
         self.scale_animation = (
               Animation(size=(ANIMATION_WIDTH_2, ANIMATION_HEIGHT_2), duration=SCALE_SPEED_OUT, step=UPDATE_INTERVAL)
@@ -138,6 +139,22 @@ class GraphCanvas(Widget):
             self.rotate_animation.cancel()
             self.scale_animation.stop(self.animated_node)
 
+    @property
+    def source_node(self):
+        return self._source_node
+
+    @source_node.setter
+    def source_node(self, node):
+        self._source_node = node
+
+    @property
+    def target_node(self):
+        return self._target_node
+
+    @target_node.setter
+    def target_node(self, node):
+        self._target_node = node
+
     def _transform_coords(self, coord):
         """Transform vertex coordinates to canvas coordinates.
         """
@@ -221,8 +238,15 @@ class GraphCanvas(Widget):
             touch.multitouch_sim = True
             # Change the color of multitouch dots to match our color scheme:
             with Window.canvas.after:
-                touch.ud._drawelement = _, ellipse = Color(*HIGHLIGHTED_EDGE), Ellipse(size=(20, 20), segments=15)
-            ellipse.pos = touch.x - 10, touch.y - 10
+                touch.ud._drawelement = Color(*HIGHLIGHTED_EDGE), Ellipse(size=(20, 20), segments=15, pos=(touch.x - 10, touch.y - 10))
+        elif self.source_node is not None:
+            if self.target_node is not None:
+                pass
+                # make a move
+            else:
+                self.source_node = None
+        elif self.selected_node is not None:
+            self.source_node = self.selected_node
 
         return True
 
