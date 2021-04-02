@@ -8,7 +8,7 @@ from .constants import (
 
 
 class Node(Line):
-    __slots__ = 'color', 'index', 'canvas',
+    __slots__ = 'index', 'canvas', 'color'
 
     def __init__(self, index, canvas):
         self.index = index
