@@ -1,6 +1,5 @@
 from igraph import Graph
 
-from .node import Node
 from .edge import Edge
 
 
@@ -27,7 +26,7 @@ class GraphInterface(Graph):
 
     def delete_edge(self, edge):
         instruction = self.canvas.edges.pop(edge)
-        self.canvas._edge_instructions.remove_group(instruction.group_name)
+        self.canvas._edge_instructions.remove_group(instruction.group)
         edge.delete()
 
         self.canvas.update_canvas()
