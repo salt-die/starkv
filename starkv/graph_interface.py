@@ -3,6 +3,7 @@ from igraph import Graph
 from .node import Node
 from .edge import Edge
 
+
 class GraphInterface(Graph):
     """
     An interface from an igraph Graph to the graph canvas that updates the canvas when an edge
