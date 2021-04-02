@@ -1,3 +1,4 @@
+from pathlib import Path
 
 UPDATE_INTERVAL = 1 / 60
 
@@ -26,6 +27,7 @@ EDGE_BOUNDS   = EDGE_WIDTH * 2
 
 HEAD_SIZE     = 5  # size of arrow heads
 
+ANIMATED_NODE_SOURCE = str(Path("starkv") / "assets" / "star.png")
 ANIMATION_WIDTH  = 50
 ANIMATION_HEIGHT = 50
 ANIMATION_WIDTH_2 = 70
