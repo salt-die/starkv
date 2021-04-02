@@ -19,34 +19,32 @@ from .constants import (
 BASE =  -.5, 0.0, -4.0, 1.0, -4.0, -1.0
 UNIT = 1.0, 1.0, 1.0, 1.0
 
-### Create textures for selected edges ###
-gradient_length = 256
-
-def lerp(a, b, pct):
-    return a * pct + b * (255 - pct)
-
 def gradient(a, b):
-    return (int(lerp(x, y, z)) for z in range(gradient_length) for x, y in zip(a, b))
+    """Linear interpolation from color `a` to color `b`.
+    """
+    return (int(x * z + y * (255 - z)) for z in range(256) for x, y in zip(a, b))
 
-SELECTED_GRADIENT = Texture.create(size=(gradient_length, 1))
-buf = bytes(gradient(EDGE_COLOR, HIGHLIGHTED_EDGE))
-SELECTED_GRADIENT.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+SELECTED_GRADIENT = Texture.create(size=(256, 1))
+SELECTED_GRADIENT.blit_buffer(
+    bytes(gradient(EDGE_COLOR, HIGHLIGHTED_EDGE)),
+    colorfmt='rgba',
+    bufferfmt='ubyte'
+)
 
-SELECTED_GRADIENT_REVERSED = Texture.create(size=(gradient_length, 1))
-buf = bytes(gradient(HIGHLIGHTED_EDGE, EDGE_COLOR))
-SELECTED_GRADIENT_REVERSED.blit_buffer(buf, colorfmt='rgba', bufferfmt='ubyte')
+SELECTED_GRADIENT_REVERSED = Texture.create(size=(256, 1))
+SELECTED_GRADIENT_REVERSED.blit_buffer(
+    bytes(gradient(HIGHLIGHTED_EDGE, EDGE_COLOR)),
+    colorfmt='rgba',
+    bufferfmt='ubyte'
+)
 
-del buf
-del lerp
 del gradient
-del gradient_length
-##########################################
 
 
 class Arrow(Triangle):
-    __slots__ = 'base', 'color', 'group_name'
+    __slots__ = 'base', 'color'
 
-    def __init__(self, color, size, group_name=None):
+    def __init__(self, color, size, group=None):
         """
         Triangle points are: (-0.5, 0), (-4, 1), (-4, -1). Looks like:
         (Two characters per x unit, One line per y unit, O is origin)
@@ -59,11 +57,11 @@ class Arrow(Triangle):
 
         Tip is off origin so that arrow is less covered by nodes.
         """
-        self.base =  tuple(c * size for c in BASE)
-        self.group_name = str(id(self)) if group_name is None else group_name
+        self.base =  tuple(x * size for x in BASE)
+        group = group or str(id(self))
 
-        self.color = Color(*color, group=self.group_name)
-        super().__init__(group=self.group_name)
+        self.color = Color(*color, group=group)
+        super().__init__(group=group)
 
     def update(self, x1, y1, x2, y2):
         theta = atan2(y2 - y1, x2 - x1)
@@ -83,19 +81,18 @@ class Arrow(Triangle):
 
 
 class Edge(Line):
-    __slots__ = 'group_name', 'edge', 'canvas', '_tail_selected', 'color', 'head'
+    __slots__ = "edge", "canvas", "_tail_selected", "color", 'head'
 
     def __init__(self, edge, canvas):
-        self.group_name = str(id(self))
+        group = str(id(self))
 
         self.edge = edge
         self.canvas = canvas
         self._tail_selected = None
+        self.color = Color(*EDGE_COLOR, group=group)
 
-        self.color = Color(*EDGE_COLOR, group=self.group_name)
-        super().__init__(width=EDGE_WIDTH, group=self.group_name)
-
-        self.head = Arrow(color=HEAD_COLOR, size=HEAD_SIZE, group_name=self.group_name)
+        super().__init__(width=EDGE_WIDTH, group=group)
+        self.head = Arrow(color=HEAD_COLOR, size=HEAD_SIZE, group=group)
 
     @property
     def tail_selected(self):
