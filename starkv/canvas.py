@@ -1,4 +1,3 @@
-from functools import wraps
 from math import cos, hypot, sin, tau
 
 from igraph import Graph, Layout
@@ -139,6 +138,7 @@ class GraphCanvas(Widget):
             self.rotate_animation.cancel()
             self.scale_animation.stop(self.animated_node)
 
+    # TODO:  Some indication in-game that source and target has been set.  Probably color change, but edge animation on target set would be nice.
     @property
     def source_node(self):
         return self._source_node
@@ -234,17 +234,28 @@ class GraphCanvas(Widget):
         self._touches.append(touch)
         self._mouse_pos_disabled = True
 
+        # Change the color of multitouch dots to match our color scheme:
         if touch.button == 'right':
             touch.multitouch_sim = True
-            # Change the color of multitouch dots to match our color scheme:
             with Window.canvas.after:
-                touch.ud._drawelement = Color(*HIGHLIGHTED_EDGE), Ellipse(size=(20, 20), segments=15, pos=(touch.x - 10, touch.y - 10))
+                touch.ud._drawelement = (
+                    Color(*HIGHLIGHTED_EDGE),
+                    Ellipse(size=(20, 20), segments=15, pos=(touch.x - 10, touch.y - 10)),
+                )
+
         elif self.source_node is not None:
             if self.target_node is not None:
                 pass
-                # make a move
+                # Make a move: Yet to be implemented.
             else:
                 self.source_node = None
+                # Recheck collision with edge:
+                collides, tail_selected = self.selected_edge.collides(touch.x, touch.y)
+                if collides:
+                    self.selected_edge.tail_selected = tail_selected
+                else:
+                    self.selected_edge = None
+
         elif self.selected_node is not None:
             self.source_node = self.selected_node
 
@@ -264,23 +275,38 @@ class GraphCanvas(Widget):
         if self._mouse_pos_disabled or not self.collide_point(mx, my):
             return
 
+        # If source node is set, check collision with a target node.
+        if self.source_node is not None:
+            if self.target_node is not None:
+                if self.target_node.collides(mx, my):
+                    return
+                else:
+                    self.target_node = None
+            else:
+                for edge in self.G.vs[self.source_node.index].out_edges():
+                    target = self.nodes[edge.target]
+                    if target != self.nodes[self.selected_edge.edge.target] and target.collides(mx, my):
+                        self.target_node = target
+                        break
+
         # If an edge is selected, just check collision with that edge.
-        if self.selected_edge is not None:
+        elif self.selected_edge is not None:
             collides, tail_selected = self.selected_edge.collides(mx, my)
             if collides:
                 self.selected_edge.tail_selected = tail_selected
             else:
                 self.selected_edge = None
-            return
 
-        for edge in self.edges.values():
-            collides, tail_selected = edge.collides(mx, my)
-            if collides:
-                edge.tail_selected = tail_selected
-                self.selected_edge = edge
-                break
+        # Check collision with all edges.
         else:
-            self.selected_edge = None
+            for edge in self.edges.values():
+                collides, tail_selected = edge.collides(mx, my)
+                if collides:
+                    edge.tail_selected = tail_selected
+                    self.selected_edge = edge
+                    break
+            else:
+                self.selected_edge = None
 
     def update_canvas(self, dt=0):
         """Update coordinates of all elements. `dt` is a dummy arg required for kivy's scheduler.
