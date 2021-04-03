@@ -1,6 +1,7 @@
 from pathlib import Path
 
 UPDATE_INTERVAL = 1 / 60
+TOUCH_INTERVAL = .4  # Number of seconds before a touch event is considered a touch move event.
 
 # Colors
 BACKGROUND_COLOR  =   0.0,   0.0,   0.0, 1.0
