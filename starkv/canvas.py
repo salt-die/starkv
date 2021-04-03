@@ -13,6 +13,8 @@ from kivy.core.window import Window
 from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
+    NODE_COLOR,
+    HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
     ANIMATION_HEIGHT,
     ANIMATION_WIDTH,
@@ -23,6 +25,7 @@ from .constants import (
     ROTATE_INCREMENT,
     SCALE_SPEED_OUT,
     SCALE_SPEED_IN,
+    TOUCH_INTERVAL,
 )
 from .graph_interface import GraphInterface
 from .node import Node
@@ -152,7 +155,13 @@ class GraphCanvas(Widget):
 
     @target_node.setter
     def target_node(self, node):
+        if self.target_node is not None:
+            self.target_node.color.rgba = NODE_COLOR
+
         self._target_node = node
+
+        if node is not None:
+            node.color.rgba = HIGHLIGHTED_NODE
 
     def _transform_coords(self, coord):
         """Transform vertex coordinates to canvas coordinates.
@@ -242,7 +251,20 @@ class GraphCanvas(Widget):
                     Ellipse(size=(20, 20), segments=15, pos=(touch.x - 10, touch.y - 10)),
                 )
 
-        elif self.source_node is not None:
+        return True
+
+    def on_touch_up(self, touch):
+        if touch.grab_current is not self:
+            return
+
+        touch.ungrab(self)
+        self._touches.remove(touch)
+        self._mouse_pos_disabled = False
+
+        if touch.time_end - touch.time_start > TOUCH_INTERVAL:
+            return
+
+        if self.source_node is not None:
             if self.target_node is not None:
                 pass
                 # Make a move: Yet to be implemented.
@@ -257,16 +279,6 @@ class GraphCanvas(Widget):
 
         elif self.selected_node is not None:
             self.source_node = self.selected_node
-
-        return True
-
-    def on_touch_up(self, touch):
-        if touch.grab_current is not self:
-            return
-
-        touch.ungrab(self)
-        self._touches.remove(touch)
-        self._mouse_pos_disabled = False
 
     def on_mouse_pos(self, *args):
         mx, my = args[-1]
