@@ -13,7 +13,6 @@ from kivy.core.window import Window
 from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
-    HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
     ANIMATION_HEIGHT,
     ANIMATION_WIDTH,
