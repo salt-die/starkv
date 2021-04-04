@@ -20,7 +20,3 @@ class Node(Line):
 
     def update(self):
         self.circle = *self.canvas.layout[self.index], NODE_RADIUS
-
-    def collides(self, px, py):
-        x, y = self.canvas.layout[self.index]
-        return abs(x - px) <= NODE_BOUNDS and abs(y - py) <= NODE_BOUNDS
