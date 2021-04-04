@@ -13,7 +13,6 @@ from kivy.core.window import Window
 from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
-    NODE_COLOR,
     HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
     ANIMATION_HEIGHT,
@@ -52,7 +51,7 @@ class GraphCanvas(Widget):
 
         self._mouse_pos_disabled = False
         self._selected_edge = self._selected_node = None
-        self._source_node = self._target_node = None
+        self._source_node = self._target_edge = None
 
         self.scale_animation = (
               Animation(size=(ANIMATION_WIDTH_2, ANIMATION_HEIGHT_2), duration=SCALE_SPEED_OUT, step=UPDATE_INTERVAL)
@@ -140,7 +139,6 @@ class GraphCanvas(Widget):
             self.rotate_animation.cancel()
             self.scale_animation.stop(self.animated_node)
 
-    # TODO:  Some indication in-game that source and target has been set.  Probably color change, but edge animation on target set would be nice.
     @property
     def source_node(self):
         return self._source_node
@@ -150,18 +148,20 @@ class GraphCanvas(Widget):
         self._source_node = node
 
     @property
-    def target_node(self):
-        return self._target_node
+    def target_edge(self):
+        return self._target_edge
 
-    @target_node.setter
-    def target_node(self, node):
-        if self.target_node is not None:
-            self.target_node.color.rgba = NODE_COLOR
+    @target_edge.setter
+    def target_edge(self, edge):
+        if self.target_edge is not None:
+            self.target_edge.color.rgba = HIGHLIGHTED_EDGE  # Temporary just to show `on_mouse_pos` works.
+            # self.target_edge.unselect()   # Will probably use some method like this instead? Or stop some animation stored in this class.
 
-        self._target_node = node
+        self._target_edge = edge
 
-        if node is not None:
-            node.color.rgba = HIGHLIGHTED_NODE
+        if edge is not None:
+            edge.color.rgba = HIGHLIGHTED_NODE  # Temporary just to show `on_mouse_pos` works.
+            # edge.select()  # or start some animation stored in this class.
 
     def _transform_coords(self, coord):
         """Transform vertex coordinates to canvas coordinates.
@@ -265,7 +265,7 @@ class GraphCanvas(Widget):
             return
 
         if self.source_node is not None:
-            if self.target_node is not None:
+            if self.target_edge is not None:
                 pass
                 # Make a move: Yet to be implemented.
             else:
@@ -288,17 +288,15 @@ class GraphCanvas(Widget):
 
         # If source node is set, check collision with a target node.
         if self.source_node is not None:
-            if self.target_node is not None:
-                if self.target_node.collides(mx, my):
-                    return
-                else:
-                    self.target_node = None
-            else:
+            if self.target_edge is None:
                 for edge in self.G.vs[self.source_node.index].out_edges():
-                    target = self.nodes[edge.target]
-                    if target != self.nodes[self.selected_edge.edge.target] and target.collides(mx, my):
-                        self.target_node = target
+                    target = self.edges[edge]
+                    if target is not self.selected_edge and target.collides(mx, my)[0]:
+                        self.target_edge = target
                         break
+            else:
+                if not self.target_edge.collides(mx, my)[0]:
+                    self.target_edge = None
 
         # If an edge is selected, just check collision with that edge.
         elif self.selected_edge is not None:
