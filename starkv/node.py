@@ -4,7 +4,6 @@ from .constants import (
     NODE_COLOR,
     NODE_RADIUS,
     NODE_WIDTH,
-    NODE_BOUNDS
 )
 
 
