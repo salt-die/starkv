@@ -5,7 +5,7 @@ from igraph import Graph, Layout
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.config import Config
-from kivy.graphics import Color, Ellipse, Rectangle, PushMatrix, PopMatrix, Rotate, Scale
+from kivy.graphics import Color, Ellipse, Line, PopMatrix, PushMatrix, Rectangle, Rotate, Scale
 from kivy.graphics.instructions import CanvasBase
 from kivy.uix.widget import Widget
 from kivy.core.window import Window
@@ -15,12 +15,14 @@ from .constants import (
     BACKGROUND_COLOR,
     HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
+    HIGHLIGHTED_HEAD,
     ANIMATION_HEIGHT,
     ANIMATION_WIDTH,
     ANIMATION_HEIGHT_2,
     ANIMATION_WIDTH_2,
     ANIMATED_NODE_SOURCE,
     ANIMATED_NODE_COLOR,
+    ANIMATED_EDGE_WIDTH,
     ROTATE_INCREMENT,
     SCALE_SPEED_OUT,
     SCALE_SPEED_IN,
@@ -53,14 +55,22 @@ class GraphCanvas(Widget):
         self._selected_edge = self._selected_node = None
         self._source_node = self._target_edge = None
 
+        self.load_graph()
+        self.setup_canvas()
+
+        # Animations
         self.scale_animation = (
               Animation(size=(ANIMATION_WIDTH_2, ANIMATION_HEIGHT_2), duration=SCALE_SPEED_OUT, step=UPDATE_INTERVAL)
             + Animation(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT), duration=SCALE_SPEED_IN, step=UPDATE_INTERVAL)
         )
         self.scale_animation.repeat = True
 
-        self.load_graph()
-        self.setup_canvas()
+        self.rotate_animation = Clock.schedule_interval(self._rotate_node, UPDATE_INTERVAL)
+        self.rotate_animation.cancel()
+
+        self.edge_color_animation = Animation(a=0)
+        self.edge_animation = Animation(width=ANIMATED_EDGE_WIDTH)
+        self.edge_animation.bind(on_start=self._reset_edge_animation, on_complete=self._reschedule_edge_animation)
 
         # Schedule events
         Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
@@ -87,6 +97,11 @@ class GraphCanvas(Widget):
             self.background_color = Color(*BACKGROUND_COLOR)
             self._background = Rectangle(size=self.size, pos=self.pos)
 
+        with self.canvas:
+            self.animated_edge_color = Color(*HIGHLIGHTED_EDGE)
+            self.animated_edge_color.a = 0
+            self.animated_edge = Line(width=1.1)
+
         # Edge instructions before Node instructions so they're drawn underneath nodes.
         self._edge_instructions = CanvasBase()
         with self._edge_instructions:
@@ -106,9 +121,6 @@ class GraphCanvas(Widget):
         with self._node_instructions:
             self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
         self.canvas.add(self._node_instructions)
-
-        self.rotate_animation = Clock.schedule_interval(self._rotate_node, UPDATE_INTERVAL)
-        self.rotate_animation.cancel()
 
     @property
     def selected_edge(self):
@@ -154,14 +166,19 @@ class GraphCanvas(Widget):
     @target_edge.setter
     def target_edge(self, edge):
         if self.target_edge is not None:
-            self.target_edge.color.rgba = HIGHLIGHTED_EDGE  # Temporary just to show `on_mouse_pos` works.
-            # self.target_edge.unselect()   # Will probably use some method like this instead? Or stop some animation stored in this class.
+            self.target_edge.color.rgba = HIGHLIGHTED_EDGE
+            self.target_edge.head.color.rgba = HIGHLIGHTED_HEAD
+
+            self._keep_animating = False
+            self.edge_animation.stop(self.animated_edge)
 
         self._target_edge = edge
 
         if edge is not None:
-            edge.color.rgba = HIGHLIGHTED_NODE  # Temporary just to show `on_mouse_pos` works.
-            # edge.select()  # or start some animation stored in this class.
+            edge.color.rgba = HIGHLIGHTED_NODE
+            edge.head.color.rgba = (1, 1, 1, 1)
+            self._keep_animating = True
+            self.edge_animation.start(self.animated_edge)
 
     def _transform_coords(self, coord):
         """Transform vertex coordinates to canvas coordinates.
@@ -188,6 +205,18 @@ class GraphCanvas(Widget):
 
         self._background.size = self.size
         self._background.pos = self.pos
+
+    def _reset_edge_animation(self, *args):
+        self.animated_edge_color.a = 1
+        self.animated_edge.width = 1.1
+        self.edge_color_animation.start(self.animated_edge_color)
+
+    def _reschedule_edge_animation(self, *args):
+        self.edge_color_animation.stop(self.animated_edge_color)
+        self.animated_edge_color.a = 0
+        self.animated_edge.width = 1.1
+        if self._keep_animating:
+            Clock.schedule_once(lambda dt: self.edge_animation.start(self.animated_edge))
 
     def on_touch_move(self, touch):
         """Zoom if multitouch, else if a node is selected, drag it, else move the entire graph.
@@ -330,6 +359,9 @@ class GraphCanvas(Widget):
             x, y = self.layout[self.selected_node.index]
             w, h = self.animated_node.size
             self.animated_node.pos = x - w // 2, y - h // 2
+
+        if self.target_edge is not None:
+            self.animated_edge.points = self.target_edge.points
 
         for node in self.nodes:
             node.update()
