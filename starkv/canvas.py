@@ -13,6 +13,7 @@ from kivy.core.window import Window
 from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
+    MIN_SCALE,
     HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
     HIGHLIGHTED_HEAD,
@@ -32,6 +33,7 @@ from .graph_interface import GraphInterface
 from .node import Node
 from .edge import Edge
 
+# This setting so we can set the color of multitouch dots manually.
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
 
 def circle_points(n):
@@ -39,6 +41,11 @@ def circle_points(n):
     """
     for i in range(n):
         yield cos(tau * i / n), sin(tau * i / n)
+
+def lerp(a, b, k):
+    """Linear interpolation from `a` to `b` by `k` amount. (0 <= k <= 1)
+    """
+    return a * (1 - k) + b * k
 
 
 class GraphCanvas(Widget):
@@ -71,6 +78,8 @@ class GraphCanvas(Widget):
         self.edge_color_animation = Animation(a=0)
         self.edge_animation = Animation(width=ANIMATED_EDGE_WIDTH)
         self.edge_animation.bind(on_start=self._reset_edge_animation, on_complete=self._reschedule_edge_animation)
+        self._restart_edge_animation = Clock.schedule_once(lambda dt: self.edge_animation.start(self.animated_edge))
+        self._restart_edge_animation.cancel()
 
         # Schedule events
         Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
@@ -124,6 +133,8 @@ class GraphCanvas(Widget):
 
     @property
     def selected_edge(self):
+        """While there is no source node, the selected edge is just the edge that is currently colliding with the mouse.
+        """
         return self._selected_edge
 
     @selected_edge.setter
@@ -135,6 +146,8 @@ class GraphCanvas(Widget):
 
     @property
     def selected_node(self):
+        """This is the end of selected edge that is closest to the mouse position.
+        """
         return self._selected_node
 
     @selected_node.setter
@@ -153,14 +166,24 @@ class GraphCanvas(Widget):
 
     @property
     def source_node(self):
+        """Source node is set to selected node when the selected node is clicked.
+        """
         return self._source_node
 
     @source_node.setter
     def source_node(self, node):
+        if self.source_node is not None:
+            self.animated_node_color.rgba = HIGHLIGHTED_EDGE
+
         self._source_node = node
+
+        if node is not None:
+            self.animated_node_color.rgba = HIGHLIGHTED_NODE
 
     @property
     def target_edge(self):
+        """The target edge is the edge we move along.
+        """
         return self._target_edge
 
     @target_edge.setter
@@ -216,7 +239,8 @@ class GraphCanvas(Widget):
         self.animated_edge_color.a = 0
         self.animated_edge.width = 1.1
         if self._keep_animating:
-            Clock.schedule_once(lambda dt: self.edge_animation.start(self.animated_edge))
+            self._restart_edge_animation()
+
 
     def on_touch_move(self, touch):
         """Zoom if multitouch, else if a node is selected, drag it, else move the entire graph.
@@ -254,7 +278,7 @@ class GraphCanvas(Widget):
         py = (touch.py - ay) / self.height
         previous_length = hypot(px, py)
 
-        self.scale += current_length - previous_length
+        self.scale = max(self.scale + current_length - previous_length, MIN_SCALE)
 
         # Make sure the anchor is a fixed point:
         # Note we can't use `ax, ay` as `self.scale` has changed.
