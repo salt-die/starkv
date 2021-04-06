@@ -1,10 +1,10 @@
 from math import atan2, cos, hypot, sin
 
 from kivy.graphics import Color, Line, Triangle
-from kivy.graphics.texture import Texture
-from kivy.uix.widget import Widget
 
 from .constants import (
+    BASE,
+    UNIT,
     EDGE_BOUNDS,
     EDGE_WIDTH,
     HEAD_SIZE,
@@ -14,31 +14,9 @@ from .constants import (
     HIGHLIGHTED_HEAD,
     NODE_COLOR,
     HIGHLIGHTED_NODE,
+    SELECTED_GRADIENT,
+    SELECTED_GRADIENT_REVERSED,
 )
-
-BASE =  -.5, 0.0, -4.0, 1.0, -4.0, -1.0
-UNIT = 1.0, 1.0, 1.0, 1.0
-
-def gradient(a, b):
-    """Linear interpolation from color `a` to color `b`.
-    """
-    return (int(x * z + y * (255 - z)) for z in range(256) for x, y in zip(a, b))
-
-SELECTED_GRADIENT = Texture.create(size=(256, 1))
-SELECTED_GRADIENT.blit_buffer(
-    bytes(gradient(EDGE_COLOR, HIGHLIGHTED_EDGE)),
-    colorfmt='rgba',
-    bufferfmt='ubyte'
-)
-
-SELECTED_GRADIENT_REVERSED = Texture.create(size=(256, 1))
-SELECTED_GRADIENT_REVERSED.blit_buffer(
-    bytes(gradient(HIGHLIGHTED_EDGE, EDGE_COLOR)),
-    colorfmt='rgba',
-    bufferfmt='ubyte'
-)
-
-del gradient
 
 
 class Arrow(Triangle):
