@@ -11,6 +11,9 @@ from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
 from .constants import (
+    UNIT,
+    SELECTED_GRADIENT,
+    SELECTED_GRADIENT_REVERSED,
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     MIN_SCALE,
@@ -28,6 +31,7 @@ from .constants import (
     SCALE_SPEED_OUT,
     SCALE_SPEED_IN,
     TOUCH_INTERVAL,
+    MOVE_STEPS,
 )
 from .graph_interface import GraphInterface
 from .node import Node
@@ -82,7 +86,7 @@ class GraphCanvas(Widget):
         self._restart_edge_animation.cancel()
 
         # Schedule events
-        Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
+        self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
         self.resize_event.cancel()
 
@@ -199,7 +203,7 @@ class GraphCanvas(Widget):
 
         if edge is not None:
             edge.color.rgba = HIGHLIGHTED_NODE
-            edge.head.color.rgba = (1, 1, 1, 1)
+            edge.head.color.rgba = UNIT
             self._keep_animating = True
             self.edge_animation.start(self.animated_edge)
 
@@ -241,6 +245,35 @@ class GraphCanvas(Widget):
         if self._keep_animating:
             self._restart_edge_animation()
 
+    def _move_intermediate(self, i=0):
+        start_x, start_y, stop_x, stop_y = self.target_edge.points
+        sx, sy, tx, ty = self.selected_edge.points
+
+        k = i / MOVE_STEPS
+        lxy = lerp(start_x, stop_x, k), lerp(start_y, stop_y, k)
+        if self.selected_edge.tail_selected:
+            self.selected_edge.points = *lxy, tx, ty
+            self.selected_edge.head.update(*lxy, tx, ty)
+            self.selected_edge.texture = SELECTED_GRADIENT
+        else:
+            self.selected_edge.points = sx, sy, *lxy
+            self.selected_edge.head.update(sx, sy, *lxy)
+            self.selected_edge.texture = SELECTED_GRADIENT_REVERSED
+
+        x, y = self.layout[self.selected_node.index]
+        w, h = self.animated_node.size
+        self.animated_node.pos = x - w // 2, y - h // 2
+
+        if i < MOVE_STEPS:
+            Clock.schedule_once(lambda dt: self._move_intermediate(i + 1))
+        else:
+            self.layout_stepper()
+            self._mouse_pos_disabled = False
+
+    def move_edge(self):
+        self.layout_stepper.cancel()
+        self._mouse_pos_disabled = True
+        Clock.schedule_once(lambda dt: self._move_intermediate())
 
     def on_touch_move(self, touch):
         """Zoom if multitouch, else if a node is selected, drag it, else move the entire graph.
@@ -319,8 +352,7 @@ class GraphCanvas(Widget):
 
         if self.source_node is not None:
             if self.target_edge is not None:
-                pass
-                # Make a move: Yet to be implemented.
+                self.move_edge()
             else:
                 self.source_node = None
                 # Recheck collision with edge:
