@@ -1,1 +1,1 @@
-Add game moves!
+Fix animated node -- position should update immediately after scaling.
