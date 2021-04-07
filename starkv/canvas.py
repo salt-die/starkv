@@ -75,6 +75,7 @@ class GraphCanvas(Widget):
             + Animation(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT), duration=SCALE_SPEED_IN, step=UPDATE_INTERVAL)
         )
         self.scale_animation.repeat = True
+        self.scale_animation.bind(on_progress=self._reposition_animated_node)
 
         self.rotate_animation = Clock.schedule_interval(self._rotate_node, UPDATE_INTERVAL)
         self.rotate_animation.cancel()
@@ -225,6 +226,11 @@ class GraphCanvas(Widget):
         """
         self.rotation_instruction.origin = self.layout[self.selected_node.index]
         self.rotation_instruction.angle = (self.rotation_instruction.angle + ROTATE_INCREMENT) % 360
+
+    def _reposition_animated_node(self, *args):
+        x, y = self.layout[self.selected_node.index]
+        w, h = self.animated_node.size
+        self.animated_node.pos = x - w // 2, y - h // 2
 
     def _delayed_resize(self, *args):
         self.resize_event.cancel()
@@ -410,11 +416,6 @@ class GraphCanvas(Widget):
 
         for edge in self.edges.values():
             edge.update()
-
-        if self.selected_node is not None:
-            x, y = self.layout[self.selected_node.index]
-            w, h = self.animated_node.size
-            self.animated_node.pos = x - w // 2, y - h // 2
 
         if self.target_edge is not None:
             self.animated_edge.points = self.target_edge.points
