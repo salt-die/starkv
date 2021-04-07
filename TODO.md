@@ -1,1 +1,1 @@
-Fix animated node -- position should update immediately after scaling.
+Updated underlying graph on edge move.
