@@ -39,7 +39,7 @@ class Arrow(Triangle):
         group = group or str(id(self))
 
         self.color = Color(*color, group=group)
-        super().__init__(group=group)
+        super().__init__(group=group, points=(0, 0, 0, 0, 0, 0))
 
     def update(self, x1, y1, x2, y2):
         theta = atan2(y2 - y1, x2 - x1)
@@ -83,7 +83,7 @@ class Edge(Line):
         if tail_selected == value:
             return
 
-        source, target = self.edge.tuple
+        source, target = self.edge
         nodes = self.canvas.nodes
         edges = self.canvas.edges
         G = self.canvas.G
@@ -93,7 +93,7 @@ class Edge(Line):
             unfrozen.color.rgba = NODE_COLOR
 
             for edge in G.vs[unfrozen.index].out_edges():
-                e = edges[edge]
+                e = edges[edge.tuple]
                 e.color.rgba = EDGE_COLOR
                 e.head.color.rgba = HEAD_COLOR
 
@@ -104,7 +104,7 @@ class Edge(Line):
             frozen.color.rgba = HIGHLIGHTED_NODE
 
             for edge in G.vs[frozen.index].out_edges():
-                e = edges[edge]
+                e = edges[edge.tuple]
                 if e is not self:
                     e.color.rgba = HIGHLIGHTED_EDGE
                     e.head.color.rgba = HIGHLIGHTED_HEAD
@@ -118,7 +118,7 @@ class Edge(Line):
 
     @property
     def layout_points(self):
-        source, target = self.edge.tuple
+        source, target = self.edge
         layout = self.canvas.layout
         return *layout[source], *layout[target],
 
@@ -139,8 +139,7 @@ class Edge(Line):
     def collides(self, px, py):
         """
         Returns a 2-tuple (is_close, closer_to_tail), where `is_close` indicates if `(px, py)` is within
-        `EDGE_BOUNDS` of this edge and `closer_to_tail` indicates if the point is closer to
-        the tail or the head of this edge.
+        `EDGE_BOUNDS` and `closer_to_tail` indicates if the point is closer to the tail or the head.
         """
         ax, ay, bx, by = self.layout_points
 
