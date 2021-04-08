@@ -12,8 +12,6 @@ from kivy.core.window import Window
 
 from .constants import (
     UNIT,
-    SELECTED_GRADIENT,
-    SELECTED_GRADIENT_REVERSED,
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     MIN_SCALE,
@@ -33,12 +31,10 @@ from .constants import (
     TOUCH_INTERVAL,
     MOVE_STEPS,
 )
-from .graph_interface import GraphInterface
 from .node import Node
 from .edge import Edge
 
-# This setting so we can set the color of multitouch dots manually.
-Config.set('input', 'mouse', 'mouse,multitouch_on_demand')
+Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # This setting so we can set the color of multitouch dots manually.
 
 def circle_points(n):
     """Yield `n` points evenly space around a circle centered at (0, 0) with radius 1.
@@ -99,7 +95,7 @@ class GraphCanvas(Widget):
         """
         # Need a dialogue for choosing number of nodes
         nnodes = 10  # TEMP
-        self.G = G = GraphInterface.Star(nnodes, mode="out")
+        self.G = Graph.Star(nnodes, mode="out")
         self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
 
     def setup_canvas(self):
@@ -119,7 +115,7 @@ class GraphCanvas(Widget):
         # Edge instructions before Node instructions so they're drawn underneath nodes.
         self._edge_instructions = CanvasBase()
         with self._edge_instructions:
-            self.edges = {edge: Edge(edge, self) for edge in self.G.es}
+            self.edges = {edge.tuple: Edge(edge.tuple, self) for edge in self.G.es}
         self.canvas.add(self._edge_instructions)
 
         # Animated node drawn above edges but below other nodes.
@@ -252,33 +248,51 @@ class GraphCanvas(Widget):
             self._restart_edge_animation()
 
     def _move_intermediate(self, i=0):
-        start_x, start_y, stop_x, stop_y = self.target_edge.points
-        sx, sy, tx, ty = self.selected_edge.points
+        """Lerp the selected edge to it's new position and update the underlying graph when finished.
+        """
+        (start_x, start_y, stop_x, stop_y), selected, tail_selected, new_end = self._move_information
+        sx, sy, tx, ty = selected.points
 
         k = i / MOVE_STEPS
         lxy = lerp(start_x, stop_x, k), lerp(start_y, stop_y, k)
-        if self.selected_edge.tail_selected:
-            self.selected_edge.points = *lxy, tx, ty
-            self.selected_edge.head.update(*lxy, tx, ty)
-            self.selected_edge.texture = SELECTED_GRADIENT
+        if tail_selected:
+            selected.points = *lxy, tx, ty
+            selected.head.update(*lxy, tx, ty)
         else:
-            self.selected_edge.points = sx, sy, *lxy
-            self.selected_edge.head.update(sx, sy, *lxy)
-            self.selected_edge.texture = SELECTED_GRADIENT_REVERSED
-
-        x, y = self.layout[self.selected_node.index]
-        w, h = self.animated_node.size
-        self.animated_node.pos = x - w // 2, y - h // 2
+            selected.points = sx, sy, *lxy
+            selected.head.update(sx, sy, *lxy)
 
         if i < MOVE_STEPS:
+            # Reschedule this function
             Clock.schedule_once(lambda dt: self._move_intermediate(i + 1))
         else:
+            self.G.delete_edges((selected.edge,))
+            del self.edges[selected.edge]
+
+            source, target = selected.edge
+            if tail_selected:
+                selected.edge =self.G.add_edge(new_end, target).tuple
+                self.edges[new_end, target] = selected
+            else:
+                selected.edge = self.G.add_edge(source, new_end).tuple
+                self.edges[source, new_end] = selected
+
             self.layout_stepper()
             self._mouse_pos_disabled = False
 
     def move_edge(self):
+        self._move_information = (
+            self.target_edge.points,
+            self.selected_edge,
+            self.selected_edge.tail_selected,
+            self.target_edge.edge[1]
+        )
+
+        self.source_node = self.target_edge = self.selected_edge = None  # WARNING: The order of these assignments is important.
+
         self.layout_stepper.cancel()
         self._mouse_pos_disabled = True
+
         Clock.schedule_once(lambda dt: self._move_intermediate())
 
     def on_touch_move(self, touch):
@@ -381,7 +395,7 @@ class GraphCanvas(Widget):
         if self.source_node is not None:
             if self.target_edge is None:
                 for edge in self.G.vs[self.source_node.index].out_edges():
-                    target = self.edges[edge]
+                    target = self.edges[edge.tuple]
                     if target is not self.selected_edge and target.collides(mx, my)[0]:
                         self.target_edge = target
                         break
