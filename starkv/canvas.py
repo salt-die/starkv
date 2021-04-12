@@ -42,10 +42,12 @@ def circle_points(n):
     for i in range(n):
         yield cos(tau * i / n), sin(tau * i / n)
 
-def lerp(a, b, k):
-    """Linear interpolation from `a` to `b` by `k` amount. (0 <= k <= 1)
+def lerp(a, b):
+    """Linear interpolation from `a` to `b`.
     """
-    return a * (1 - k) + b * k
+    for i in range(MOVE_STEPS):
+        k = i / MOVE_STEPS
+        yield a * (1 - k) + b * k
 
 
 class GraphCanvas(Widget):
@@ -83,9 +85,11 @@ class GraphCanvas(Widget):
         self._restart_edge_animation.cancel()
 
         # Schedule events
-        self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
         self.resize_event.cancel()
+        self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
+        self.edge_move = Clock.schedule_interval(self._move_intermediate, UPDATE_INTERVAL)
+        self.edge_move.cancel()
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
@@ -247,25 +251,25 @@ class GraphCanvas(Widget):
         if self._keep_animating:
             self._restart_edge_animation()
 
-    def _move_intermediate(self, i=0):
+    def _move_intermediate(self, dt):
         """Lerp the selected edge to it's new position and update the underlying graph when finished.
         """
-        (start_x, start_y, stop_x, stop_y), selected, tail_selected, new_end = self._move_information
+        lerp_x, lerp_y, selected, tail_selected, new_end = self._move_information
         sx, sy, tx, ty = selected.points
 
-        k = i / MOVE_STEPS
-        lxy = lerp(start_x, stop_x, k), lerp(start_y, stop_y, k)
-        if tail_selected:
-            selected.points = *lxy, tx, ty
-            selected.head.update(*lxy, tx, ty)
-        else:
-            selected.points = sx, sy, *lxy
-            selected.head.update(sx, sy, *lxy)
+        try:
+            lx = next(lerp_x)
+            ly = next(lerp_y)
 
-        if i < MOVE_STEPS:
-            # Reschedule this function
-            Clock.schedule_once(lambda dt: self._move_intermediate(i + 1))
-        else:
+            if tail_selected:
+                selected.points = lx, ly, tx, ty
+                selected.head.update(lx, ly, tx, ty)
+            else:
+                selected.points = sx, sy, lx, ly
+                selected.head.update(sx, sy, lx, ly)
+
+        except StopIteration:
+            self.edge_move.cancel()
             self.G.delete_edges((selected.edge,))
             del self.edges[selected.edge]
 
@@ -281,11 +285,14 @@ class GraphCanvas(Widget):
             self._mouse_pos_disabled = False
 
     def move_edge(self):
+        start_x, start_y, stop_x, stop_y = self.target_edge.points
+
         self._move_information = (
-            self.target_edge.points,
+            lerp(start_x, stop_x),
+            lerp(start_y, stop_y),
             self.selected_edge,
             self.selected_edge.tail_selected,
-            self.target_edge.edge[1]
+            self.target_edge.edge[1],
         )
 
         self.source_node = self.target_edge = self.selected_edge = None  # WARNING: The order of these assignments is important.
@@ -293,7 +300,7 @@ class GraphCanvas(Widget):
         self.layout_stepper.cancel()
         self._mouse_pos_disabled = True
 
-        Clock.schedule_once(lambda dt: self._move_intermediate())
+        self.edge_move()
 
     def on_touch_move(self, touch):
         """Zoom if multitouch, else if a node is selected, drag it, else move the entire graph.
