@@ -42,13 +42,6 @@ def circle_points(n):
     for i in range(n):
         yield cos(tau * i / n), sin(tau * i / n)
 
-def lerp(a, b):
-    """Linear interpolation from `a` to `b`.
-    """
-    for i in range(MOVE_STEPS):
-        k = i / MOVE_STEPS
-        yield a * (1 - k) + b * k
-
 
 class GraphCanvas(Widget):
     def __init__(self, *args, **kwargs):
@@ -88,7 +81,7 @@ class GraphCanvas(Widget):
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
         self.resize_event.cancel()
         self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
-        self.edge_move = Clock.schedule_interval(self._move_intermediate, UPDATE_INTERVAL)
+        self.edge_move = Clock.schedule_interval(self._move_edge, UPDATE_INTERVAL)
         self.edge_move.cancel()
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
@@ -145,7 +138,7 @@ class GraphCanvas(Widget):
     @selected_edge.setter
     def selected_edge(self, edge):
         if self.selected_edge is not None:
-            self.selected_edge.tail_selected = None
+            self.selected_edge.is_tail_selected = None
 
         self._selected_edge = edge
 
@@ -251,55 +244,67 @@ class GraphCanvas(Widget):
         if self._keep_animating:
             self._restart_edge_animation()
 
-    def _move_intermediate(self, dt):
+    def _lerp_edge(self):
+        """Generator that updates the selected edge position.
+        """
+        # Before we reset the edge colors grab the information we need to lerp:
+        selected_edge = self.selected_edge
+        is_tail_selected = selected_edge.is_tail_selected
+        sx, sy, tx, ty = selected_edge.points
+
+        start_x, start_y, stop_x, stop_y = self.target_edge.points
+        new_end = self.target_edge.edge[1]
+
+        # Reset the colors:
+        self.source_node = self.target_edge = self.selected_edge = None  # WARNING: The order of these assignments is important.
+
+        self.layout_stepper.cancel()  # Need to turn off the layout_stepper while lerping
+        self._mouse_pos_disabled = True
+
+        yield
+
+        for i in range(MOVE_STEPS):
+            k = i / MOVE_STEPS
+            x = start_x * (1 - k) + stop_x * k
+            y = start_y * (1 - k) + stop_y * k
+            if is_tail_selected:
+                selected_edge.points = x, y, tx, ty
+                selected_edge.head.update(x, y, tx, ty)
+            else:
+                selected_edge.points = sx, sy, x, y
+                selected_edge.head.update(sx, sy, x, y)
+            yield
+
+        return selected_edge, is_tail_selected, new_end  # _move_edge needs this information to update the underlying graph
+
+    def _move_edge(self, dt):
         """Lerp the selected edge to it's new position and update the underlying graph when finished.
         """
-        lerp_x, lerp_y, selected, tail_selected, new_end = self._move_information
-        sx, sy, tx, ty = selected.points
-
         try:
-            lx = next(lerp_x)
-            ly = next(lerp_y)
+            next(self._edge_lerp)
 
-            if tail_selected:
-                selected.points = lx, ly, tx, ty
-                selected.head.update(lx, ly, tx, ty)
-            else:
-                selected.points = sx, sy, lx, ly
-                selected.head.update(sx, sy, lx, ly)
+        except StopIteration as e:
+            selected_edge, is_tail_selected, new_end = e.value
 
-        except StopIteration:
             self.edge_move.cancel()
-            self.G.delete_edges((selected.edge,))
-            del self.edges[selected.edge]
+            self.G.delete_edges((selected_edge.edge,))
+            del self.edges[selected_edge.edge]
 
-            source, target = selected.edge
-            if tail_selected:
-                selected.edge =self.G.add_edge(new_end, target).tuple
-                self.edges[new_end, target] = selected
+            source, target = selected_edge.edge
+            if is_tail_selected:
+                selected_edge.edge =self.G.add_edge(new_end, target).tuple
+                self.edges[new_end, target] = selected_edge
             else:
-                selected.edge = self.G.add_edge(source, new_end).tuple
-                self.edges[source, new_end] = selected
+                selected_edge.edge = self.G.add_edge(source, new_end).tuple
+                self.edges[source, new_end] = selected_edge
 
             self.layout_stepper()
             self._mouse_pos_disabled = False
 
     def move_edge(self):
-        start_x, start_y, stop_x, stop_y = self.target_edge.points
-
-        self._move_information = (
-            lerp(start_x, stop_x),
-            lerp(start_y, stop_y),
-            self.selected_edge,
-            self.selected_edge.tail_selected,
-            self.target_edge.edge[1],
-        )
-
-        self.source_node = self.target_edge = self.selected_edge = None  # WARNING: The order of these assignments is important.
-
-        self.layout_stepper.cancel()
-        self._mouse_pos_disabled = True
-
+        self._edge_lerp = self._lerp_edge()
+        next(self._edge_lerp)  # Prime the generator -- If we don't do this immediately it's possible to lose the
+                               # selected edge information before the scheduler calls `_move_edge`
         self.edge_move()
 
     def on_touch_move(self, touch):
@@ -383,9 +388,9 @@ class GraphCanvas(Widget):
             else:
                 self.source_node = None
                 # Recheck collision with edge:
-                collides, tail_selected = self.selected_edge.collides(touch.x, touch.y)
+                collides, is_tail_selected = self.selected_edge.collides(touch.x, touch.y)
                 if collides:
-                    self.selected_edge.tail_selected = tail_selected
+                    self.selected_edge.is_tail_selected = is_tail_selected
                 else:
                     self.selected_edge = None
 
@@ -412,18 +417,18 @@ class GraphCanvas(Widget):
 
         # If an edge is selected, just check collision with that edge.
         elif self.selected_edge is not None:
-            collides, tail_selected = self.selected_edge.collides(mx, my)
+            collides, is_tail_selected = self.selected_edge.collides(mx, my)
             if collides:
-                self.selected_edge.tail_selected = tail_selected
+                self.selected_edge.is_tail_selected = is_tail_selected
             else:
                 self.selected_edge = None
 
         # Check collision with all edges.
         else:
             for edge in self.edges.values():
-                collides, tail_selected = edge.collides(mx, my)
+                collides, is_tail_selected = edge.collides(mx, my)
                 if collides:
-                    edge.tail_selected = tail_selected
+                    edge.is_tail_selected = is_tail_selected
                     self.selected_edge = edge
                     break
             else:
