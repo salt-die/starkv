@@ -79,12 +79,6 @@ class Edge(Line):
 
         self._is_tail_selected = value
 
-    @property
-    def layout_points(self):
-        source, target = self.edge
-        layout = self.canvas.layout
-        return *layout[source], *layout[target],
-
     def update_points(self, x1, y1, x2, y2):
         theta = atan2(y2 - y1, x2 - x1)
         cosine = cos(theta)
@@ -92,6 +86,7 @@ class Edge(Line):
         bx1, by1, bx2, by2, bx3, by3 = Edge.HEAD
 
         self.points = x1, y1, x2, y2
+        # Triangle points are determined by multiplying Edge.Head by rotation matrix and translating to (x2, y2).
         self.head.points = (
             cosine * bx1 + by1 *  -sine + x2,
             sine   * bx1 + by1 * cosine + y2,
@@ -102,7 +97,9 @@ class Edge(Line):
         )
 
     def update(self):
-        self.update_points(*self.layout_points)
+        source, target = self.edge
+        layout = self.canvas.layout
+        self.update_points(*layout[source], *layout[target])
 
         if self.is_tail_selected is not None:
             self.texture = SELECTED_GRADIENT if self.is_tail_selected else SELECTED_GRADIENT_REVERSED
@@ -112,7 +109,7 @@ class Edge(Line):
         Returns a 2-tuple (is_close, is_closer_to_tail), where `is_close` indicates if `(px, py)` is within
         `EDGE_BOUNDS` of this edge and `is_closer_to_tail` indicates if the point is closer to the tail or the head.
         """
-        ax, ay, bx, by = self.layout_points
+        ax, ay, bx, by = self.points
 
         # Distance from a point to a segment:
         # We compare dot products of point with either end of segment
