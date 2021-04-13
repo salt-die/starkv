@@ -51,30 +51,15 @@ class Edge(Line):
             return
 
         source, target = self.edge
-        nodes = self.canvas.nodes
-        edges = self.canvas.edges
-        G = self.canvas.G
 
-        if old_is_tail_selected is not None:  # Return frozen node and out-edge colors to their default values
-            unfrozen = nodes[source if old_is_tail_selected else target]
-            unfrozen.color.rgba = NODE_COLOR
-
-            for edge in G.vs[unfrozen.index].out_edges():
-                e = edges[edge.tuple]
-                e.color.rgba = EDGE_COLOR
-                e.head_color.rgba = HEAD_COLOR
-
-        if is_tail_selected is not None:  # Highlight this edge, set selected_node, and highlight that node's out-edges
+        if is_tail_selected is not None:
             self.color.rgba = WHITE
-            self.head_color.rgba, frozen = (HEAD_COLOR, nodes[source]) if is_tail_selected else (HIGHLIGHTED_HEAD, nodes[target])
-            self.canvas.selected_node = frozen
-            frozen.color.rgba = HIGHLIGHTED_NODE
-
-            for edge in G.vs[frozen.index].out_edges():
-                e = edges[edge.tuple]
-                if e is not self:
-                    e.color.rgba = HIGHLIGHTED_EDGE
-                    e.head_color.rgba = HIGHLIGHTED_HEAD
+            if is_tail_selected:
+                self.head_color.rgba = HEAD_COLOR
+                self.canvas.selected_node = self.canvas.nodes[source]
+            else:
+                self.head_color.rgba = HIGHLIGHTED_HEAD
+                self.canvas.selected_node = self.canvas.nodes[target]
 
         else:  # Return this edge's colors to their defaults and unselect the selected_node
             self.color.rgba = EDGE_COLOR
