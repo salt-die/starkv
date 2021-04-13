@@ -76,9 +76,7 @@ class GraphCanvas(Widget):
 
         self.edge_color_animation = Animation(a=0)
         self.edge_animation = Animation(width=ANIMATED_EDGE_WIDTH)
-        self.edge_animation.bind(on_start=self._reset_edge_animation, on_complete=self._reschedule_edge_animation)
-        self._restart_edge_animation = Clock.schedule_once(lambda dt: self.edge_animation.start(self.animated_edge))
-        self._restart_edge_animation.cancel()
+        self.edge_animation.bind(on_start=self._edge_animation_start, on_complete=self._reschedule_edge_animation)
 
         # Schedule events
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
@@ -235,17 +233,20 @@ class GraphCanvas(Widget):
         self._background.size = self.size
         self._background.pos = self.pos
 
-    def _reset_edge_animation(self, *args):
-        self.animated_edge_color.a = 1
+    def _edge_animation_start(self, *args):
         self.animated_edge.width = 1.1
+
+        self.animated_edge_color.a = 1
         self.edge_color_animation.start(self.animated_edge_color)
 
     def _reschedule_edge_animation(self, *args):
         self.edge_color_animation.stop(self.animated_edge_color)
         self.animated_edge_color.a = 0
         self.animated_edge.width = 1.1
+
         if self._keep_animating:
-            self._restart_edge_animation()
+            # Just calling edge_animation.start won't work as we're still animating, we must schedule the restart.
+            Clock.schedule_once(lambda dt: self.edge_animation.start(self.animated_edge))
 
     def _lerp_edge(self):
         """Generator that updates the selected edge position.
