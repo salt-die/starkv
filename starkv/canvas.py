@@ -18,6 +18,9 @@ from .constants import (
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     MIN_SCALE,
+    EDGE_COLOR,
+    HEAD_COLOR,
+    NODE_COLOR,
     HIGHLIGHTED_NODE,
     HIGHLIGHTED_EDGE,
     HIGHLIGHTED_HEAD,
@@ -151,8 +154,30 @@ class GraphCanvas(Widget):
 
     @selected_node.setter
     def selected_node(self, node):
+        edges = self.edges
+        G = self.G
+
+        if self._selected_node is not None:
+            # Reset node and out-edges to their default colors
+            self._selected_node.color.rgba = NODE_COLOR
+
+            for edge in G.vs[self._selected_node.index].out_edges():
+                e = edges[edge.tuple]
+                if e is not self.selected_edge:
+                    e.color.rgba = EDGE_COLOR
+                    e.head_color.rgba = HEAD_COLOR
+
         self._selected_node = node
         if node is not None:
+            # Highlight this node and adjacent out-edges
+            node.color.rgba = HIGHLIGHTED_NODE
+
+            for edge in G.vs[node.index].out_edges():
+                e = edges[edge.tuple]
+                if e is not self.selected_edge:
+                    e.color.rgba = HIGHLIGHTED_EDGE
+                    e.head_color.rgba = HIGHLIGHTED_HEAD
+
             self._selected_node_x, self._selected_node_y = self._unscaled_layout[node.index]
             self.animated_node_color.a = 1
             self.rotate_animation()
@@ -402,7 +427,7 @@ class GraphCanvas(Widget):
         if self._mouse_pos_disabled or not self.collide_point(mx, my):
             return
 
-        # If source node is set, check collision with a target node.
+        # If source node is set, check collision with an adjacent out-edge.
         if self.source_node is not None:
             if self.target_edge is None:
                 for edge in self.G.vs[self.source_node.index].out_edges():
@@ -427,8 +452,8 @@ class GraphCanvas(Widget):
             for edge in self.edges.values():
                 collides, is_tail_selected = edge.collides(mx, my)
                 if collides:
+                    self.selected_edge = edge  # This should be set before `edge.is_tail_selected`
                     edge.is_tail_selected = is_tail_selected
-                    self.selected_edge = edge
                     break
             else:
                 self.selected_edge = None
@@ -453,8 +478,8 @@ class GraphCanvas(Widget):
         """
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
 
-        # Keep the animated node fixed:
-        if self.selected_edge is not None:
+        # Keep the selected node fixed:
+        if self.selected_node is not None:
             self._unscaled_layout[self.selected_node.index] = self._selected_node_x, self._selected_node_y
 
         self.layout = self._unscaled_layout.copy()
