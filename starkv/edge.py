@@ -59,28 +59,28 @@ class Arrow(Triangle):
 
 
 class Edge(Line):
-    __slots__ = "edge", "canvas", "_tail_selected", "color", 'head'
+    __slots__ = "edge", "canvas", "_is_tail_selected", "color", 'head'
 
     def __init__(self, edge, canvas):
         group = str(id(self))
 
         self.edge = edge
         self.canvas = canvas
-        self._tail_selected = None
+        self._is_tail_selected = None
         self.color = Color(*EDGE_COLOR, group=group)
 
         super().__init__(width=EDGE_WIDTH, group=group)
         self.head = Arrow(color=HEAD_COLOR, size=HEAD_SIZE, group=group)
 
     @property
-    def tail_selected(self):
-        return self._tail_selected
+    def is_tail_selected(self):
+        return self._is_tail_selected
 
-    @tail_selected.setter
-    def tail_selected(self, value):
-        tail_selected = self.tail_selected
+    @is_tail_selected.setter
+    def is_tail_selected(self, value):
+        is_tail_selected = self.is_tail_selected
 
-        if tail_selected == value:
+        if is_tail_selected == value:
             return
 
         source, target = self.edge
@@ -88,8 +88,8 @@ class Edge(Line):
         edges = self.canvas.edges
         G = self.canvas.G
 
-        if tail_selected is not None:
-            unfrozen = nodes[source if tail_selected else target]
+        if is_tail_selected is not None:
+            unfrozen = nodes[source if is_tail_selected else target]
             unfrozen.color.rgba = NODE_COLOR
 
             for edge in G.vs[unfrozen.index].out_edges():
@@ -114,7 +114,7 @@ class Edge(Line):
             self.head.color.rgba = HEAD_COLOR
             self.canvas.selected_node = None
 
-        self._tail_selected = value
+        self._is_tail_selected = value
 
     @property
     def layout_points(self):
@@ -128,10 +128,10 @@ class Edge(Line):
         self.points = x1, y1, x2, y2
         self.head.update(x1, y1, x2, y2)
 
-        if self.tail_selected is None:
+        if self.is_tail_selected is None:
             return
 
-        if self.tail_selected:
+        if self.is_tail_selected:
             self.texture = SELECTED_GRADIENT
         else:
             self.texture = SELECTED_GRADIENT_REVERSED
