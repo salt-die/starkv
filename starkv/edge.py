@@ -37,6 +37,8 @@ class Edge(Line):
 
     @property
     def is_tail_selected(self):
+        """Returns a bool only if the edge is selected otherwise None.
+        """
         return self._is_tail_selected
 
     @is_tail_selected.setter
@@ -86,7 +88,7 @@ class Edge(Line):
         bx1, by1, bx2, by2, bx3, by3 = Edge.HEAD
 
         self.points = x1, y1, x2, y2
-        # Triangle points are determined by multiplying Edge.Head by rotation matrix and translating to (x2, y2).
+        # Triangle points are determined by multiplying Edge.HEAD by rotation matrix and translating to (x2, y2).
         self.head.points = (
             cosine * bx1 + by1 *  -sine + x2,
             sine   * bx1 + by1 * cosine + y2,
@@ -97,10 +99,13 @@ class Edge(Line):
         )
 
     def update(self):
+        """Update points based on canvas's current layout.
+        """
         source, target = self.edge
         layout = self.canvas.layout
         self.update_points(*layout[source], *layout[target])
 
+        # Textures will be lost when points are changed, so we re-apply them.
         if self.is_tail_selected is not None:
             self.texture = SELECTED_GRADIENT if self.is_tail_selected else SELECTED_GRADIENT_REVERSED
 
