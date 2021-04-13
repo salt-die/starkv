@@ -14,7 +14,7 @@ from .constants import (
     RESIZE_DELAY,
     INIT_SCALE,
     INIT_OFFSET,
-    UNIT,
+    WHITE,
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
     MIN_SCALE,
@@ -189,7 +189,7 @@ class GraphCanvas(Widget):
     def target_edge(self, edge):
         if self.target_edge is not None:
             self.target_edge.color.rgba = HIGHLIGHTED_EDGE
-            self.target_edge.head.color.rgba = HIGHLIGHTED_HEAD
+            self.target_edge.head_color.rgba = HIGHLIGHTED_HEAD
 
             self._keep_animating = False
             self.edge_animation.stop(self.animated_edge)
@@ -198,7 +198,7 @@ class GraphCanvas(Widget):
 
         if edge is not None:
             edge.color.rgba = HIGHLIGHTED_NODE
-            edge.head.color.rgba = UNIT
+            edge.head_color.rgba = WHITE
             self._keep_animating = True
             self.edge_animation.start(self.animated_edge)
 
@@ -271,12 +271,7 @@ class GraphCanvas(Widget):
             k = i / MOVE_STEPS
             x = start_x * (1 - k) + stop_x * k
             y = start_y * (1 - k) + stop_y * k
-            if is_tail_selected:
-                selected_edge.points = x, y, tx, ty
-                selected_edge.head.update(x, y, tx, ty)
-            else:
-                selected_edge.points = sx, sy, x, y
-                selected_edge.head.update(sx, sy, x, y)
+            selected_edge.update_points(*((x, y, tx, ty) if is_tail_selected else (sx, sy, x, y)))
             yield
 
         return selected_edge, is_tail_selected, new_end  # _move_edge needs this information to update the underlying graph
