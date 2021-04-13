@@ -11,6 +11,9 @@ from kivy.uix.widget import Widget
 from kivy.core.window import Window
 
 from .constants import (
+    RESIZE_DELAY,
+    INIT_SCALE,
+    INIT_OFFSET,
     UNIT,
     UPDATE_INTERVAL,
     BACKGROUND_COLOR,
@@ -48,10 +51,10 @@ class GraphCanvas(Widget):
         super().__init__(*args, **kwargs)
 
         self._touches = []
-        self.delay = .1
+        self.delay = RESIZE_DELAY
 
-        self.scale = .3
-        self.offset_x, self.offset_y = .5, .5
+        self.scale = INIT_SCALE
+        self.offset_x, self.offset_y = INIT_OFFSET
 
         self._mouse_pos_disabled = False
         self._selected_edge = self._selected_node = None
@@ -152,7 +155,7 @@ class GraphCanvas(Widget):
     def selected_node(self, node):
         self._selected_node = node
         if node is not None:
-            self._selected_node_x, self._selected_node_y = x, y = self._unscaled_layout[node.index]
+            self._selected_node_x, self._selected_node_y = self._unscaled_layout[node.index]
             self.animated_node_color.a = 1
             self.rotate_animation()
             self.scale_animation.start(self.animated_node)

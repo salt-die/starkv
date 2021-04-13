@@ -9,6 +9,9 @@ def gradient(a, b):
 
 
 UPDATE_INTERVAL = 1 / 60
+RESIZE_DELAY    = .1
+INIT_SCALE      = .3
+INIT_OFFSET     = .5, .5
 TOUCH_INTERVAL  = .4  # Number of seconds before a touch event is considered a touch move event.
 MIN_SCALE       = .05
 
