@@ -42,10 +42,12 @@ class Edge(Line):
         return self._is_tail_selected
 
     @is_tail_selected.setter
-    def is_tail_selected(self, value):
-        is_tail_selected = self.is_tail_selected
+    def is_tail_selected(self, is_tail_selected):
+        """Re-colors this edge and adjacent edges before updating `_is_tail_selected`.
+        """
+        old_is_tail_selected = self.is_tail_selected
 
-        if is_tail_selected == value:
+        if old_is_tail_selected is is_tail_selected:
             return
 
         source, target = self.edge
@@ -53,8 +55,8 @@ class Edge(Line):
         edges = self.canvas.edges
         G = self.canvas.G
 
-        if is_tail_selected is not None:
-            unfrozen = nodes[source if is_tail_selected else target]
+        if old_is_tail_selected is not None:  # Return frozen node and out-edge colors to their default values
+            unfrozen = nodes[source if old_is_tail_selected else target]
             unfrozen.color.rgba = NODE_COLOR
 
             for edge in G.vs[unfrozen.index].out_edges():
@@ -62,9 +64,9 @@ class Edge(Line):
                 e.color.rgba = EDGE_COLOR
                 e.head_color.rgba = HEAD_COLOR
 
-        if value is not None:
+        if is_tail_selected is not None:  # Highlight this edge, set selected_node, and highlight that node's out-edges
             self.color.rgba = WHITE
-            self.head_color.rgba, frozen = (HEAD_COLOR, nodes[source]) if value else (HIGHLIGHTED_HEAD, nodes[target])
+            self.head_color.rgba, frozen = (HEAD_COLOR, nodes[source]) if is_tail_selected else (HIGHLIGHTED_HEAD, nodes[target])
             self.canvas.selected_node = frozen
             frozen.color.rgba = HIGHLIGHTED_NODE
 
@@ -74,12 +76,12 @@ class Edge(Line):
                     e.color.rgba = HIGHLIGHTED_EDGE
                     e.head_color.rgba = HIGHLIGHTED_HEAD
 
-        else:
+        else:  # Return this edge's colors to their defaults and unselect the selected_node
             self.color.rgba = EDGE_COLOR
             self.head_color.rgba = HEAD_COLOR
             self.canvas.selected_node = None
 
-        self._is_tail_selected = value
+        self._is_tail_selected = is_tail_selected
 
     def update_points(self, x1, y1, x2, y2):
         theta = atan2(y2 - y1, x2 - x1)
