@@ -12,13 +12,13 @@ UPDATE_INTERVAL = 1 / 60
 RESIZE_DELAY    = .1
 INIT_SCALE      = .3
 INIT_OFFSET     = .5, .5
-TOUCH_INTERVAL  = .4  # Number of seconds before a touch event is considered a touch move event.
+TOUCH_INTERVAL  = .4  # Number of seconds before a touch event is considered a touch move event
 MIN_SCALE       = .05
 
-BASE              =  -0.5,   0.0,  -4.0, 1.0, -4.0, -1.0  # Triangle base points
-UNIT              =   1.0,   1.0,   1.0, 1.0
+HEAD_BASE         =  -0.5,   0.0,  -4.0, 1.0, -4.0, -1.0  # Triangle base points for arrow-heads of edges
 
 # Colors
+WHITE             =   1.0,   1.0,   1.0, 1.0
 BACKGROUND_COLOR  =   0.0,   0.0,   0.0, 1.0
 
 NODE_COLOR        = 0.051, 0.278, 0.631, 1.0
@@ -51,7 +51,7 @@ NODE_WIDTH    = 3
 EDGE_WIDTH    = 2
 EDGE_BOUNDS   = EDGE_WIDTH * 2
 
-HEAD_SIZE     = 5  # size of arrow heads
+HEAD_SIZE     = 5  # Size of arrow heads
 
 # Animated Node
 ANIMATED_NODE_SOURCE = str(Path("starkv") / "assets" / "star.png")
