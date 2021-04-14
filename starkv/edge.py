@@ -101,8 +101,8 @@ class Edge(Line):
         ax, ay, bx, by = self.points
 
         # Distance from a point to a segment:
-        # We compare dot products of point with either end of segment
-        # to determine if point is closest to that end
+        # 1) Compare dot products of point with either end of segment to determine if point is closest to that end
+        # 2) Otherwise, take distance of perpendicular line to segment through the point
         abx, aby = bx - ax, by - ay
         apx, apy = px - ax, py - ay
         ab_ap = abx * apx + aby * apy
@@ -114,5 +114,4 @@ class Edge(Line):
         if ab_bp > 0:
             return hypot(px - bx, py - by) <= EDGE_BOUNDS, False
 
-        # Project segment down to point
         return abs(abx * apy - aby * apx) / hypot(abx, aby) <= EDGE_BOUNDS, hypot(px - ax, py - ay) < hypot(px - bx, py - by)
