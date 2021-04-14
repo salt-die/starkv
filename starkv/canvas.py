@@ -55,13 +55,7 @@ class GraphCanvas(Widget):
 
         self._touches = []
         self.delay = RESIZE_DELAY
-
-        self.scale = INIT_SCALE
-        self.offset_x, self.offset_y = INIT_OFFSET
-
         self._mouse_pos_disabled = False
-        self._selected_edge = self._selected_node = None
-        self._source_node = self._target_edge = None
 
         self.load_graph()
         self.setup_canvas()
@@ -82,11 +76,14 @@ class GraphCanvas(Widget):
         self.edge_animation.bind(on_start=self._edge_animation_start, on_complete=self._reschedule_edge_animation)
 
         # Schedule events
-        self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
-        self.resize_event.cancel()
-        self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
         self.edge_move = Clock.schedule_interval(self._move_edge, UPDATE_INTERVAL)
         self.edge_move.cancel()
+
+        self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
+        self.resize_event.cancel()
+
+        self.step_layout()  # Force first step before we allow `on_mouse_pos` to be called
+        self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
 
         self.bind(size=self._delayed_resize, pos=self._delayed_resize)
         Window.bind(mouse_pos=self.on_mouse_pos)
@@ -102,6 +99,12 @@ class GraphCanvas(Widget):
     def setup_canvas(self):
         """Populate the canvas with the initial instructions.
         """
+        self.scale = INIT_SCALE
+        self.offset_x, self.offset_y = INIT_OFFSET
+
+        self._selected_edge = self._selected_node = None
+        self._source_node = self._target_edge = None
+
         self.canvas.clear()
 
         with self.canvas.before:
@@ -132,6 +135,26 @@ class GraphCanvas(Widget):
         with self._node_instructions:
             self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
         self.canvas.add(self._node_instructions)
+
+    def reset(self):
+        # Stop all animations
+        self.layout_stepper.cancel()
+        self.edge_move.cancel()
+
+        self.scale_animation.stop(self.animated_node)
+        self.rotate_animation.cancel()
+
+        self.edge_color_animation.stop(self.animated_edge)
+        self.edge_animation.stop(self.animated_edge)
+
+        self.canvas.clear()
+        self.load_graph()
+        self.setup_canvas()
+
+        self.step_layout()
+        self.layout_stepper()
+
+        self._mouse_pos_disabled = False
 
     @property
     def selected_edge(self):
@@ -377,6 +400,10 @@ class GraphCanvas(Widget):
         self.offset_y += (ay - y) / self.height
 
     def on_touch_down(self, touch):
+        if touch.is_mouse_scrolling:  # REMOVE THIS: For testing only
+            self.reset()
+            return True
+
         if not self.collide_point(*touch.pos):
             return
 
@@ -473,7 +500,7 @@ class GraphCanvas(Widget):
         for node in self.nodes:
             node.update()
 
-    def step_layout(self, dt):
+    def step_layout(self, dt=0):
         """Iterate the graph layout algorithm. `dt` is a dummy arg required for kivy's scheduler.
         """
         self._unscaled_layout = self.G.layout_graphopt(niter=1, seed=self._unscaled_layout, max_sa_movement=.1, node_charge=.00001)
