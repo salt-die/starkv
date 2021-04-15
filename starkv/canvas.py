@@ -5,10 +5,10 @@ from igraph import Graph, Layout
 from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.config import Config
+from kivy.core.window import Window
 from kivy.graphics import Color, Ellipse, Line, PopMatrix, PushMatrix, Rectangle, Rotate, Scale
 from kivy.graphics.instructions import CanvasBase
 from kivy.uix.widget import Widget
-from kivy.core.window import Window
 
 from .constants import (
     RESIZE_DELAY,
@@ -37,8 +37,9 @@ from .constants import (
     TOUCH_INTERVAL,
     MOVE_STEPS,
 )
-from .node import Node
 from .edge import Edge
+from .node import Node
+from .popup import NewGameDialogue
 
 Config.set('input', 'mouse', 'mouse,multitouch_on_demand')  # This setting so we can set the color of multitouch dots manually.
 
@@ -92,6 +93,7 @@ class GraphCanvas(Widget):
         """Set initial graph.
         """
         # Need a dialogue for choosing number of nodes
+        NewGameDialogue().open()
         nnodes = 10  # TEMP
         self.G = Graph.Star(nnodes, mode="out")
         self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
