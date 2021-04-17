@@ -139,6 +139,8 @@ class GraphCanvas(Widget):
         self.canvas.add(self._node_instructions)
 
     def reset(self):
+        self._mouse_pos_disabled = True
+
         # Stop all animations
         self.layout_stepper.cancel()
         self.edge_move.cancel()
@@ -146,7 +148,7 @@ class GraphCanvas(Widget):
         self.scale_animation.stop(self.animated_node)
         self.rotate_animation.cancel()
 
-        self.edge_color_animation.stop(self.animated_edge)
+        self.edge_color_animation.stop(self.animated_edge_color)
         self.edge_animation.stop(self.animated_edge)
 
         self.canvas.clear()
