@@ -56,12 +56,12 @@ class GraphCanvas(Widget):
 
         self._touches = []
         self.delay = RESIZE_DELAY
-        self._mouse_pos_disabled = False
+        self._mouse_pos_disabled = True
 
+        self._init_animations()
         self.load_graph()
-        self.setup_canvas()
 
-        # Animations
+    def _init_animations(self):
         self.scale_animation = (
               Animation(size=(ANIMATION_WIDTH_2, ANIMATION_HEIGHT_2), duration=SCALE_SPEED_OUT, step=UPDATE_INTERVAL)
             + Animation(size=(ANIMATION_WIDTH, ANIMATION_HEIGHT), duration=SCALE_SPEED_IN, step=UPDATE_INTERVAL)
@@ -83,24 +83,23 @@ class GraphCanvas(Widget):
         self.resize_event = Clock.schedule_once(self.update_canvas, self.delay)
         self.resize_event.cancel()
 
-        self.step_layout()  # Force first step before we allow `on_mouse_pos` to be called
         self.layout_stepper = Clock.schedule_interval(self.step_layout, UPDATE_INTERVAL)
-
-        self.bind(size=self._delayed_resize, pos=self._delayed_resize)
-        Window.bind(mouse_pos=self.on_mouse_pos)
+        self.layout_stepper.cancel()
 
     def load_graph(self):
         """Set initial graph.
         """
-        # Need a dialogue for choosing number of nodes
-        NewGameDialogue().open()
-        nnodes = 10  # TEMP
-        self.G = Graph.Star(nnodes, mode="out")
-        self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(nnodes - 1)])
+        self._selecting_nnodes = True
+        NewGameDialogue(self).open()
 
     def setup_canvas(self):
         """Populate the canvas with the initial instructions.
         """
+        self._selecting_nnodes = False
+
+        self.G = Graph.Star(self.nnodes, mode="out")
+        self._unscaled_layout = Layout([(0.0, 0.0), *circle_points(self.nnodes - 1)])
+
         self.scale = INIT_SCALE
         self.offset_x, self.offset_y = INIT_OFFSET
 
@@ -138,6 +137,15 @@ class GraphCanvas(Widget):
             self.nodes = [Node(vertex.index, self) for vertex in self.G.vs]
         self.canvas.add(self._node_instructions)
 
+        # TODO: Refactor so we only need to do this once
+        self.bind(size=self._delayed_resize, pos=self._delayed_resize)
+        Window.bind(mouse_pos=self.on_mouse_pos)
+
+        self.step_layout()
+        self.layout_stepper()
+
+        self._mouse_pos_disabled = False
+
     def reset(self):
         self._mouse_pos_disabled = True
 
@@ -153,12 +161,6 @@ class GraphCanvas(Widget):
 
         self.canvas.clear()
         self.load_graph()
-        self.setup_canvas()
-
-        self.step_layout()
-        self.layout_stepper()
-
-        self._mouse_pos_disabled = False
 
     @property
     def selected_edge(self):
@@ -364,6 +366,9 @@ class GraphCanvas(Widget):
         if touch.grab_current is not self or touch.button == 'right':
             return
 
+        if self._selecting_nnodes:
+            return
+
         if len(self._touches) > 1:
             self.transform_on_touch(touch)
 
@@ -407,6 +412,9 @@ class GraphCanvas(Widget):
         if touch.is_mouse_scrolling:  # REMOVE THIS: For testing only
             self.reset()
             return True
+
+        if self._selecting_nnodes:
+            return
 
         if not self.collide_point(*touch.pos):
             return
