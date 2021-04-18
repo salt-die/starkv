@@ -1,4 +1,4 @@
-Game initialization needs wait for new game dialogue --- need to re-order some operations in `__init__`.
+Disabling on_mouse events should be refactored.  Need better separation of init and reset.
 
 Number of players
 Player indicator
